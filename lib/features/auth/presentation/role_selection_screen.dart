@@ -60,7 +60,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
   Widget _roleCard(AppRole role) {
     final selected = role == _selected;
-    final icon = switch (role) { AppRole.projectManager => Icons.domain_rounded, AppRole.siteEngineer => Icons.engineering_rounded, AppRole.estimator => Icons.calculate_outlined, AppRole.contractor => Icons.handyman_rounded };
+    final icon = switch (role) { AppRole.projectManager => Icons.domain_rounded, AppRole.siteEngineer => Icons.engineering_rounded, AppRole.estimator => Icons.calculate_outlined };
     return Padding(padding: const EdgeInsets.only(bottom: 12), child: InkWell(
       borderRadius: BorderRadius.circular(17), onTap: () => setState(() => _selected = role),
       child: AnimatedContainer(duration: const Duration(milliseconds: 160), padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: selected ? AppTheme.blue.withValues(alpha: .055) : Colors.white, borderRadius: BorderRadius.circular(17), border: Border.all(color: selected ? AppTheme.blue : const Color(0xFFE5EAF1), width: selected ? 1.6 : 1)),

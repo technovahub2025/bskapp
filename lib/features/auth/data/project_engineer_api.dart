@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ProjectEngineerApi {
-  ProjectEngineerApi({http.Client? client, this.baseUrl = const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://10.0.2.2:5000')}) : _client = client ?? http.Client();
+  ProjectEngineerApi({http.Client? client, this.baseUrl = const String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:5000')}) : _client = client ?? http.Client();
 
   final http.Client _client;
   final String baseUrl;

@@ -28,6 +28,5 @@ class RoleHomeScreen extends StatelessWidget {
         AppRole.projectManager => ProjectManagerHome(repository: projectRepository, onSignOut: () => _signOut(context)),
         AppRole.siteEngineer => SiteEngineerHome(repository: projectRepository, authRepository: authRepository, onSignOut: () => _signOut(context)),
         AppRole.estimator => EstimatorHome(onSignOut: () => _signOut(context)),
-        AppRole.contractor => Scaffold(appBar: AppBar(title: const Text('Contractor')), body: const Center(child: Text('Contractor access is not configured yet.'))),
       };
 }

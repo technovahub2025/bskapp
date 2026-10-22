@@ -43,7 +43,7 @@ class _SignInScreenState extends State<SignInScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = widget.role != AppRole.contractor;
+    const enabled = true;
     final isSiteEngineer = widget.role == AppRole.siteEngineer;
     return Scaffold(appBar: AppBar(backgroundColor: AppTheme.canvas, title: const Text('Sign in', style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.navy))), body: SafeArea(child: SingleChildScrollView(padding: const EdgeInsets.fromLTRB(24, 24, 24, 32), child: Form(key: _formKey, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Container(width: 58, height: 58, decoration: BoxDecoration(color: AppTheme.blue.withValues(alpha: .1), borderRadius: BorderRadius.circular(18)), child: const Icon(Icons.lock_person_rounded, color: AppTheme.blue, size: 29)),
