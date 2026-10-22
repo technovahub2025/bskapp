@@ -631,6 +631,17 @@ String _fullValue(dynamic value) {
 }
 bool _numericField(String field) => !['descriptionOfWork', 'unit', 'labour', 'item'].contains(field);
 String _recordTitle(Map<String, dynamic> record, String type) => (record['title'] ?? record['projectname'] ?? record['siteEngineer'] ?? '${type[0].toUpperCase()}${type.substring(1)} report').toString();
+List<MapEntry<String, dynamic>> _reportEntries(Map<String, dynamic> record, String type) {
+  final raw = record[_reportField(type)];
+  final Map<String, dynamic>? fields = raw is List && raw.isNotEmpty && raw.first is Map
+      ? Map<String, dynamic>.from(raw.first as Map)
+      : raw is Map
+          ? Map<String, dynamic>.from(raw)
+          : null;
+  final source = fields ?? record;
+  return source.entries.where((entry) => !['_id', 'id', 'projectId', 'projectid', 'siteEngineer', 'status', 'createdAt', 'updatedAt', '__v'].contains(entry.key)).toList();
+}
+
 IconData _siteReportIcon(String type) => switch (type) {'measurement' => Icons.straighten_rounded, 'labour' => Icons.groups_rounded, _ => Icons.inventory_2_outlined};
 String _recordSummary(Map<String, dynamic> record, String type) {
   final data = record[_reportField(type)];
