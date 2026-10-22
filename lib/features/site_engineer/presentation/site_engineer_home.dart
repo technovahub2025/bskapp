@@ -20,6 +20,7 @@ class SiteEngineerHome extends StatefulWidget {
 
 class _SiteEngineerHomeState extends State<SiteEngineerHome> {
   late final Future<String?> _name = widget.authRepository.readEngineerName();
+  Future<List<Project>>? _assignedProjects;
   final _api = ProjectEngineerApi();
   final _storage = TokenStorage();
   late final SiteEngineerRepository _workflow = SiteEngineerRepository(api: _api, tokenStorage: _storage, projects: widget.repository);
@@ -33,17 +34,30 @@ class _SiteEngineerHomeState extends State<SiteEngineerHome> {
           if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
           final name = snapshot.data;
           if (name == null || name.isEmpty) return const Center(child: Text('Engineer name not found. Please sign in again.'));
-          return _projects(name);
+          _assignedProjects ??= _loadAssignedProjects(name);
+          return _projects(name, _assignedProjects!);
         },
       ));
 
-  Widget _projects(String name) => FutureBuilder<List<Project>>(
-        future: widget.repository.assignedProjects(siteEngineer: name),
+  Future<List<Project>> _loadAssignedProjects(String name) async {
+    final requestedName = name.trim();
+    final projects = await widget.repository.assignedProjects(siteEngineer: requestedName);
+    if (projects.isNotEmpty) return projects;
+
+    // Some API implementations ignore the name filter or compare names with
+    // different casing. Fetch the assigned list and match it consistently here.
+    final allAssigned = await widget.repository.assignedProjects();
+    final normalizedName = requestedName.toLowerCase();
+    return allAssigned.where((project) => project.siteEngineer?.trim().toLowerCase() == normalizedName).toList();
+  }
+
+  Widget _projects(String name, Future<List<Project>> projectsFuture) => FutureBuilder<List<Project>>(
+        future: projectsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-          if (snapshot.hasError) return _message('Could not load assigned projects.\n${snapshot.error}', onRetry: () => setState(() {}));
+          if (snapshot.hasError) return _message('Could not load assigned projects.\n${snapshot.error}', onRetry: () => setState(() { _assignedProjects = _loadAssignedProjects(name); }));
           final projects = snapshot.data ?? const <Project>[];
-          return RefreshIndicator(onRefresh: () async => setState(() {}), child: ListView(padding: const EdgeInsets.all(20), children: [
+          return RefreshIndicator(onRefresh: () async => setState(() { _assignedProjects = _loadAssignedProjects(name); }), child: ListView(padding: const EdgeInsets.all(20), children: [
             Text('Hello, $name', style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w800, color: AppTheme.navy)),
             const SizedBox(height: 5), Text('Your assigned projects', style: TextStyle(color: Colors.blueGrey.shade600)),
             const SizedBox(height: 20),
@@ -109,14 +123,16 @@ class _ReportListState extends State<_ReportList> {
   late Future<List<Map<String, dynamic>>> _future;
   @override
   void initState() { super.initState(); _load(); }
-  void _load() => _future = widget.repository.reports(widget.type, projectId: widget.project.id, name: widget.name);
+  void _load() {
+    _future = widget.repository.reports(widget.type, projectId: widget.project.id, name: widget.name);
+  }
 
   @override
   Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-          if (snapshot.hasError) return _message(snapshot.error.toString(), onRetry: () => setState(_load));
+          if (snapshot.hasError) return _message(snapshot.error.toString(), onRetry: () => setState(() { _load(); }));
           final reports = snapshot.data ?? const [];
           return ListView(padding: const EdgeInsets.all(16), children: [
             SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: _add, icon: const Icon(Icons.add), label: Text('Add ${widget.type} report'))),
@@ -137,7 +153,7 @@ class _ReportListState extends State<_ReportList> {
   Future<void> _add() async {
     final entry = await _entryDialog(widget.type);
     if (entry == null) return;
-    try { await widget.repository.createReport(widget.type, projectId: widget.project.id, name: widget.name, entry: entry); if (mounted) setState(_load); }
+    try { await widget.repository.createReport(widget.type, projectId: widget.project.id, name: widget.name, entry: entry); if (mounted) setState(() { _load(); }); }
     catch (error) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString()))); }
   }
 
@@ -147,26 +163,109 @@ class _ReportListState extends State<_ReportList> {
     final entry = raw is List && raw.isNotEmpty && raw.first is Map ? Map<String, dynamic>.from(raw.first as Map) : Map<String, dynamic>.from(report);
     final updated = await _entryDialog(widget.type, initial: entry);
     if (updated == null) return;
-    try { await widget.repository.updateReport(widget.type, id, {field: [updated]}); if (mounted) setState(_load); }
+    try { await widget.repository.updateReport(widget.type, id, {field: [updated]}); if (mounted) setState(() { _load(); }); }
     catch (error) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString()))); }
   }
 
   Future<Map<String, dynamic>?> _entryDialog(String type, {Map<String, dynamic> initial = const {}}) async {
-    final fields = switch (type) {
-      'measurement' => ['descriptionOfWork', 'nos', 'length', 'breadth', 'height', 'unit', 'qty'],
-      'labour' => ['labour', 'nos', 'wages', 'total'],
-      _ => ['item', 'qty', 'rate', 'total'],
-    };
-    final controllers = {for (final field in fields) field: TextEditingController(text: initial[field]?.toString() ?? '')};
-    final formKey = GlobalKey<FormState>();
-    final result = await showDialog<Map<String, dynamic>>(context: context, builder: (context) => AlertDialog(
-      title: Text('${initial.isEmpty ? 'Add' : 'Edit'} $type report'),
-      content: Form(key: formKey, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [for (final field in fields) Padding(padding: const EdgeInsets.only(bottom: 10), child: TextFormField(controller: controllers[field], keyboardType: _numericField(field) ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text, decoration: InputDecoration(labelText: _label(field)), validator: (value) => value == null || value.trim().isEmpty ? 'Required' : null))]))),
-      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), FilledButton(onPressed: () { if (!formKey.currentState!.validate()) return; final value = <String, dynamic>{}; for (final field in fields) { final text = controllers[field]!.text.trim(); value[field] = _numericField(field) ? (num.tryParse(text) ?? text) : text; } Navigator.pop(context, value); }, child: const Text('Save'))],
-    ));
-    for (final controller in controllers.values) { controller.dispose(); }
-    return result;
+    return showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => _ReportEntryDialog(type: type, initial: initial),
+    );
   }
+}
+
+class _ReportEntryDialog extends StatefulWidget {
+  const _ReportEntryDialog({required this.type, required this.initial});
+  final String type;
+  final Map<String, dynamic> initial;
+
+  @override
+  State<_ReportEntryDialog> createState() => _ReportEntryDialogState();
+}
+
+class _ReportEntryDialogState extends State<_ReportEntryDialog> {
+  late final List<String> _fields = switch (widget.type) {
+    'measurement' => ['descriptionOfWork', 'nos', 'length', 'breadth', 'height', 'unit', 'qty'],
+    'labour' => ['labour', 'nos', 'wages', 'total'],
+    _ => ['item', 'qty', 'rate', 'total'],
+  };
+  late final Map<String, TextEditingController> _controllers = {
+    for (final field in _fields) field: TextEditingController(text: widget.initial[field]?.toString() ?? ''),
+  };
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text('${widget.initial.isEmpty ? 'Add' : 'Edit'} ${widget.type} report'),
+        content: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              for (final field in _fields)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: TextFormField(
+                    controller: _controllers[field],
+                    keyboardType: _numericField(field) ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
+                    decoration: InputDecoration(labelText: _label(field)),
+                    validator: (value) => value == null || value.trim().isEmpty ? 'Required' : null,
+                  ),
+                ),
+            ]),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              if (!_formKey.currentState!.validate()) return;
+              final value = <String, dynamic>{};
+              for (final field in _fields) {
+                final text = _controllers[field]!.text.trim();
+                value[field] = _numericField(field) ? (num.tryParse(text) ?? text) : text;
+              }
+              Navigator.pop(context, value);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      );
+}
+
+class _IssueEntryDialog extends StatefulWidget {
+  const _IssueEntryDialog();
+
+  @override
+  State<_IssueEntryDialog> createState() => _IssueEntryDialogState();
+}
+
+class _IssueEntryDialogState extends State<_IssueEntryDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Report an issue'),
+        content: TextField(controller: _controller, minLines: 3, maxLines: 5, decoration: const InputDecoration(labelText: 'Describe the issue')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(onPressed: () { if (_controller.text.trim().isNotEmpty) Navigator.pop(context, _controller.text.trim()); }, child: const Text('Submit')),
+        ],
+      );
 }
 
 class _IssueList extends StatefulWidget {
@@ -181,17 +280,15 @@ class _IssueListState extends State<_IssueList> {
   @override
   Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(future: _future, builder: (context, snapshot) {
     if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-    if (snapshot.hasError) return _message(snapshot.error.toString(), onRetry: () => setState(() => _future = widget.repository.issues()));
+    if (snapshot.hasError) return _message(snapshot.error.toString(), onRetry: () => setState(() { _future = widget.repository.issues(); }));
     final issues = snapshot.data ?? const [];
     return ListView(padding: const EdgeInsets.all(16), children: [SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: _addIssue, icon: const Icon(Icons.report_gmailerrorred_rounded), label: const Text('Report an issue'))), const SizedBox(height: 10), if (issues.isEmpty) const Padding(padding: EdgeInsets.all(22), child: Center(child: Text('No issues reported'))) else ...issues.map((issue) => Card(color: Colors.white, elevation: 0, child: ListTile(title: Text((issue['issueText'] ?? issue['description'] ?? 'Issue').toString()), subtitle: Text('Status: ${issue['status'] ?? 'submitted'}'))))]);
   });
 
   Future<void> _addIssue() async {
-    final controller = TextEditingController();
-    final text = await showDialog<String>(context: context, builder: (context) => AlertDialog(title: const Text('Report an issue'), content: TextField(controller: controller, minLines: 3, maxLines: 5, decoration: const InputDecoration(labelText: 'Describe the issue')), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), FilledButton(onPressed: () { if (controller.text.trim().isNotEmpty) Navigator.pop(context, controller.text.trim()); }, child: const Text('Submit'))]));
-    controller.dispose();
+    final text = await showDialog<String>(context: context, builder: (_) => const _IssueEntryDialog());
     if (text == null) return;
-    try { await widget.repository.submitIssue(text); if (mounted) setState(() => _future = widget.repository.issues()); }
+    try { await widget.repository.submitIssue(text); if (mounted) setState(() { _future = widget.repository.issues(); }); }
     catch (error) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString()))); }
   }
 }

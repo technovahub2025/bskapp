@@ -34,7 +34,7 @@ class ProjectRepositoryImpl implements ProjectRepository {
   }
 
   List<Project> _list(Map<String, dynamic> response) {
-    final raw = response['projects'] ?? response['data'] ?? response['results'] ?? const [];
+    final raw = response['projects'] ?? response['assignedProjects'] ?? response['assignedprojects'] ?? response['data'] ?? response['results'] ?? const [];
     if (raw is! List) return const [];
     return raw.whereType<Map<String, dynamic>>().map(Project.fromJson).toList();
   }

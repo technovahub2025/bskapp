@@ -11,7 +11,7 @@ class Project {
         title: (json['title'] ?? '').toString(),
         description: (json['description'] ?? '').toString(),
         projectName: (json['projectname'] ?? json['projectName'] ?? '').toString(),
-        siteEngineer: json['siteEngineer']?.toString(),
+        siteEngineer: (json['siteEngineer'] ?? json['siteengineer'] ?? json['site_engineer'])?.toString(),
       );
 }
 

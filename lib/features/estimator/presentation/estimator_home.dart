@@ -31,15 +31,15 @@ class _EstimatorHomeState extends State<EstimatorHome> {
         Padding(padding: const EdgeInsets.fromLTRB(20, 10, 12, 8), child: Row(children: [
           const Expanded(child: Text('Read-only project data', style: TextStyle(color: AppTheme.navy, fontWeight: FontWeight.w700))),
           DropdownButton<bool>(value: _assignedOnly, items: const [DropdownMenuItem(value: false, child: Text('All projects')), DropdownMenuItem(value: true, child: Text('Assigned'))], onChanged: (value) { if (value == null) return; setState(() { _assignedOnly = value; _projects = _loadProjects(); }); }),
-          IconButton(tooltip: 'Refresh', onPressed: () => setState(() => _projects = _loadProjects()), icon: const Icon(Icons.refresh_rounded)),
+          IconButton(tooltip: 'Refresh', onPressed: () => setState(() { _projects = _loadProjects(); }), icon: const Icon(Icons.refresh_rounded)),
         ])),
         if (_assignedOnly) Padding(padding: const EdgeInsets.fromLTRB(20, 0, 20, 10), child: TextField(decoration: const InputDecoration(hintText: 'Optional site engineer filter', prefixIcon: Icon(Icons.person_search), isDense: true), onSubmitted: (value) => setState(() { _engineer = value.trim(); _projects = _loadProjects(); }))),
         Expanded(child: FutureBuilder<List<Project>>(future: _projects, builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-          if (snapshot.hasError) return _message('Could not load projects.\n${snapshot.error}', onRetry: () => setState(() => _projects = _loadProjects()));
+          if (snapshot.hasError) return _message('Could not load projects.\n${snapshot.error}', onRetry: () => setState(() { _projects = _loadProjects(); }));
           final projects = snapshot.data ?? const <Project>[];
           if (projects.isEmpty) return _message('No projects found.');
-          return RefreshIndicator(onRefresh: () async => setState(() => _projects = _loadProjects()), child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 24), children: [
+          return RefreshIndicator(onRefresh: () async { setState(() { _projects = _loadProjects(); }); }, child: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 24), children: [
             ...projects.map((project) => Card(color: Colors.white, elevation: 0, margin: const EdgeInsets.only(bottom: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFFE7EBF1))), child: ListTile(
               contentPadding: const EdgeInsets.all(15),
               title: Text(project.title.isEmpty ? project.projectName : project.title, style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.navy)),
@@ -83,10 +83,10 @@ class _EstimatorReportListState extends State<_EstimatorReportList> {
   @override
   Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(future: _future, builder: (context, snapshot) {
     if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-    if (snapshot.hasError) return _message(snapshot.error.toString(), onRetry: () => setState(() => _future = widget.repository.reports(widget.type, widget.projectId)));
+    if (snapshot.hasError) return _message(snapshot.error.toString(), onRetry: () => setState(() { _future = widget.repository.reports(widget.type, widget.projectId); }));
     final records = snapshot.data ?? const [];
     if (records.isEmpty) return _message('No ${widget.type} reports for this project.');
-    return RefreshIndicator(onRefresh: () async => setState(() => _future = widget.repository.reports(widget.type, widget.projectId)), child: ListView(padding: const EdgeInsets.all(16), children: records.map((record) => Card(color: Colors.white, elevation: 0, margin: const EdgeInsets.only(bottom: 10), child: Padding(padding: const EdgeInsets.all(15), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return RefreshIndicator(onRefresh: () async { setState(() { _future = widget.repository.reports(widget.type, widget.projectId); }); }, child: ListView(padding: const EdgeInsets.all(16), children: records.map((record) => Card(color: Colors.white, elevation: 0, margin: const EdgeInsets.only(bottom: 10), child: Padding(padding: const EdgeInsets.all(15), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(_title(record, widget.type), style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.navy)),
       const SizedBox(height: 6), Text('Status: ${record['status'] ?? 'unknown'}', style: TextStyle(color: Colors.blueGrey.shade600, fontSize: 12)),
       const SizedBox(height: 8), Text(_details(record, widget.type), style: TextStyle(color: Colors.blueGrey.shade700, height: 1.45)),

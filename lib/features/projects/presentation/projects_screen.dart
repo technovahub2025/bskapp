@@ -12,6 +12,93 @@ class ProjectsScreen extends StatefulWidget {
   State<ProjectsScreen> createState() => _ProjectsScreenState();
 }
 
+class _ProjectFormDialog extends StatefulWidget {
+  const _ProjectFormDialog({required this.title, required this.projectName, required this.projectTitle, required this.description, required this.edit});
+  final String title;
+  final String projectName;
+  final String projectTitle;
+  final String description;
+  final bool edit;
+
+  @override
+  State<_ProjectFormDialog> createState() => _ProjectFormDialogState();
+}
+
+class _ProjectFormDialogState extends State<_ProjectFormDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final _name = TextEditingController(text: widget.projectName);
+  late final _projectTitle = TextEditingController(text: widget.projectTitle);
+  late final _description = TextEditingController(text: widget.description);
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _projectTitle.dispose();
+    _description.dispose();
+    super.dispose();
+  }
+
+  String? _required(String? value) => value == null || value.trim().isEmpty ? 'Required' : null;
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: Text(widget.title),
+        content: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              if (!widget.edit) ...[
+                TextFormField(controller: _name, decoration: const InputDecoration(labelText: 'Project name'), validator: _required),
+                const SizedBox(height: 12),
+              ],
+              TextFormField(controller: _projectTitle, decoration: const InputDecoration(labelText: 'Title'), validator: _required),
+              const SizedBox(height: 12),
+              TextFormField(controller: _description, decoration: const InputDecoration(labelText: 'Description'), minLines: 2, maxLines: 4, validator: _required),
+            ]),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              if (_formKey.currentState!.validate()) {
+                Navigator.pop(context, [_name.text.trim(), _projectTitle.text.trim(), _description.text.trim()]);
+              }
+            },
+            child: Text(widget.edit ? 'Save' : 'Create'),
+          ),
+        ],
+      );
+}
+
+class _AssignEngineerDialog extends StatefulWidget {
+  const _AssignEngineerDialog({required this.initialValue});
+  final String initialValue;
+
+  @override
+  State<_AssignEngineerDialog> createState() => _AssignEngineerDialogState();
+}
+
+class _AssignEngineerDialogState extends State<_AssignEngineerDialog> {
+  late final _controller = TextEditingController(text: widget.initialValue);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Assign site engineer'),
+        content: TextField(controller: _controller, autofocus: true, decoration: const InputDecoration(labelText: 'Engineer name', hintText: 'e.g. Alex')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(onPressed: () { if (_controller.text.trim().isNotEmpty) Navigator.pop(context, _controller.text.trim()); }, child: const Text('Assign')),
+        ],
+      );
+}
+
 class _ProjectsScreenState extends State<ProjectsScreen> {
   ProjectCounts _counts = const ProjectCounts();
   List<Project> _projects = const [];
@@ -85,51 +172,14 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   }
 
   Future<List<String>?> _projectDialog({required String title, required String projectName, required String projectTitle, required String description, bool edit = false}) async {
-    final name = TextEditingController(text: projectName);
-    final projectTitleController = TextEditingController(text: projectTitle);
-    final descriptionController = TextEditingController(text: description);
-    final formKey = GlobalKey<FormState>();
-    final result = await showDialog<List<String>>(
+    return showDialog<List<String>>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Form(
-          key: formKey,
-          child: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              if (!edit) ...[
-                TextFormField(controller: name, decoration: const InputDecoration(labelText: 'Project name'), validator: _required),
-                const SizedBox(height: 12),
-              ],
-              TextFormField(controller: projectTitleController, decoration: const InputDecoration(labelText: 'Title'), validator: _required),
-              const SizedBox(height: 12),
-              TextFormField(controller: descriptionController, decoration: const InputDecoration(labelText: 'Description'), minLines: 2, maxLines: 4, validator: _required),
-            ]),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                Navigator.pop(context, [name.text.trim(), projectTitleController.text.trim(), descriptionController.text.trim()]);
-              }
-            },
-            child: Text(edit ? 'Save' : 'Create'),
-          ),
-        ],
-      ),
+      builder: (_) => _ProjectFormDialog(title: title, projectName: projectName, projectTitle: projectTitle, description: description, edit: edit),
     );
-    name.dispose(); projectTitleController.dispose(); descriptionController.dispose();
-    return result;
   }
 
-  String? _required(String? value) => value == null || value.trim().isEmpty ? 'Required' : null;
-
   Future<void> _assignProject(Project project) async {
-    final controller = TextEditingController(text: project.siteEngineer ?? '');
-    final value = await showDialog<String>(context: context, builder: (context) => AlertDialog(title: const Text('Assign site engineer'), content: TextField(controller: controller, autofocus: true, decoration: const InputDecoration(labelText: 'Engineer name', hintText: 'e.g. Alex')), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), FilledButton(onPressed: () { if (controller.text.trim().isNotEmpty) Navigator.pop(context, controller.text.trim()); }, child: const Text('Assign'))]));
-    controller.dispose();
+    final value = await showDialog<String>(context: context, builder: (_) => _AssignEngineerDialog(initialValue: project.siteEngineer ?? ''));
     if (value == null) return;
     await _action(() => widget.repository.assign(project, siteEngineer: value));
   }
