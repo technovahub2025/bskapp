@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_theme.dart';
+import '../../auth/data/project_engineer_api.dart';
+import '../../auth/data/token_storage.dart';
+import '../../estimator/data/estimator_repository.dart';
+import '../../estimator/presentation/estimator_home.dart';
 import '../domain/project.dart';
 import '../domain/project_repository.dart';
 
@@ -113,6 +117,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   bool _assignedOnly = false;
   String _engineerFilter = '';
   String? _error;
+  String? _reviewingProjectId;
 
   @override
   void initState() { super.initState(); _refresh(); }
@@ -120,14 +125,24 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   Future<void> _refresh() async {
     setState(() { _loading = true; _error = null; });
     try {
-      final values = await Future.wait([
-        widget.repository.counts(),
-        _assignedOnly
-            ? widget.repository.assignedProjects(siteEngineer: _engineerFilter.isEmpty ? null : _engineerFilter)
-            : widget.repository.projects(),
-      ]);
+      final values = await Future.wait([widget.repository.counts(), widget.repository.projects()]);
       if (!mounted) return;
-      setState(() { _counts = values[0] as ProjectCounts; _projects = values[1] as List<Project>; _loading = false; });
+      final allProjects = values[1] as List<Project>;
+      final apiCounts = values[0] as ProjectCounts;
+      final visibleProjects = _assignedOnly
+          ? await widget.repository.assignedProjects(siteEngineer: _engineerFilter.isEmpty ? null : _engineerFilter)
+          : allProjects;
+      if (!mounted) return;
+      final assigned = allProjects.where((project) => project.siteEngineer?.trim().isNotEmpty == true).length;
+      setState(() {
+        _counts = ProjectCounts(
+          total: apiCounts.total == 0 && allProjects.isNotEmpty ? allProjects.length : apiCounts.total,
+          assigned: apiCounts.assigned == 0 && assigned > 0 ? assigned : apiCounts.assigned,
+          unassigned: apiCounts.total == 0 && allProjects.isNotEmpty ? allProjects.length - assigned : apiCounts.unassigned,
+        );
+        _projects = visibleProjects;
+        _loading = false;
+      });
     } catch (error) {
       if (mounted) setState(() { _error = error.toString(); _loading = false; });
     }
@@ -157,7 +172,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   Widget _stat(String label, int value, IconData icon, Color color) => Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppTheme.border)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Icon(icon, color: color, size: 20), const SizedBox(height: 12), Text('$value', style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: AppTheme.navy)), Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade600))]));
 
   Widget _projectCard(Project project) => Card(color: Colors.white, elevation: 0, margin: const EdgeInsets.only(bottom: 11), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: AppTheme.border)), child: Padding(padding: const EdgeInsets.all(15), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    Row(children: [Expanded(child: Text(project.title.isEmpty ? project.projectName : project.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.navy))), PopupMenuButton<String>(onSelected: (value) => value == 'edit' ? _editProject(project) : _assignProject(project), itemBuilder: (_) => const [PopupMenuItem(value: 'edit', child: Text('Edit details')), PopupMenuItem(value: 'assign', child: Text('Assign engineer'))])]),
+    Row(children: [Expanded(child: Text(project.title.isEmpty ? project.projectName : project.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.navy))), PopupMenuButton<String>(onSelected: (value) { if (value == 'edit') { _editProject(project); } else if (value == 'assign') { _assignProject(project); } else { _viewProject(project); } }, itemBuilder: (_) => const [PopupMenuItem(value: 'view', child: Text('View project')), PopupMenuItem(value: 'edit', child: Text('Edit details')), PopupMenuItem(value: 'assign', child: Text('Assign engineer'))])]),
     if (project.projectName.isNotEmpty && project.projectName != project.title) Text(project.projectName, style: TextStyle(color: Colors.blueGrey.shade500, fontSize: 12)),
     if (project.workflowStatus?.isNotEmpty == true) ...[
       const SizedBox(height: 5),
@@ -165,7 +180,45 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     ],
     const SizedBox(height: 5), Text(project.description.isEmpty ? 'No description provided.' : project.description, style: TextStyle(color: Colors.blueGrey.shade700, height: 1.35)),
     const SizedBox(height: 12), Row(children: [Icon(Icons.engineering_rounded, size: 16, color: Colors.blueGrey.shade400), const SizedBox(width: 6), Text(project.siteEngineer?.isNotEmpty == true ? project.siteEngineer! : 'Unassigned', style: TextStyle(fontSize: 12, color: project.siteEngineer?.isNotEmpty == true ? const Color(0xFF15956B) : Colors.blueGrey.shade500, fontWeight: FontWeight.w600))]),
+    const SizedBox(height: 12),
+    Row(children: [
+      Expanded(child: OutlinedButton.icon(onPressed: () => _viewProject(project), icon: const Icon(Icons.visibility_outlined), label: const Text('View project'))),
+      if (project.siteEngineer?.trim().isNotEmpty == true && !['approved', 'rejected'].contains(project.workflowStatus?.trim().toLowerCase())) ...[
+        const SizedBox(width: 8),
+        IconButton(tooltip: 'Reject workflow', onPressed: _reviewingProjectId == project.id ? null : () => _reviewWorkflow(project, approve: false), color: Colors.red.shade700, icon: const Icon(Icons.close_rounded)),
+        IconButton(tooltip: 'Approve workflow', onPressed: _reviewingProjectId == project.id ? null : () => _reviewWorkflow(project, approve: true), color: const Color(0xFF15956B), icon: const Icon(Icons.check_rounded)),
+      ],
+    ]),
   ])));
+
+  void _viewProject(Project project) {
+    final repository = EstimatorRepository(api: ProjectEngineerApi(), tokenStorage: TokenStorage());
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => EstimatorProjectScreen(project: project, repository: repository)));
+  }
+
+  Future<void> _reviewWorkflow(Project project, {required bool approve}) async {
+    final action = approve ? 'approve' : 'reject';
+    final confirmed = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+      title: Text('${approve ? 'Approve' : 'Reject'} workflow?'),
+      content: Text('This will $action the submitted reports for ${project.title.isEmpty ? project.projectName : project.title}.'),
+      actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: Text(approve ? 'Approve' : 'Reject'))],
+    ));
+    if (confirmed != true || !mounted) return;
+    setState(() => _reviewingProjectId = project.id);
+    try {
+      if (approve) {
+        await widget.repository.approveWorkflow(project);
+      } else {
+        await widget.repository.rejectWorkflow(project);
+      }
+      await _refresh();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Workflow ${approve ? 'approved' : 'rejected'}')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString()), behavior: SnackBarBehavior.floating));
+    } finally {
+      if (mounted) setState(() => _reviewingProjectId = null);
+    }
+  }
 
   Widget _errorCard() => Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)), child: Column(children: [const Icon(Icons.cloud_off_rounded, color: Colors.deepOrange), const SizedBox(height: 8), Text(_error!, textAlign: TextAlign.center), TextButton(onPressed: _refresh, child: const Text('Try again'))]));
   Widget _emptyState() => Container(padding: const EdgeInsets.symmetric(vertical: 42, horizontal: 20), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)), child: Column(children: [Icon(Icons.folder_open_rounded, size: 36, color: Colors.blueGrey.shade300), const SizedBox(height: 10), const Text('No projects found', style: TextStyle(fontWeight: FontWeight.w700)), const SizedBox(height: 4), Text('Create a project to see it here.', style: TextStyle(color: Colors.blueGrey.shade500))]));
