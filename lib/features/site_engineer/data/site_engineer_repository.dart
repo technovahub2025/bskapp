@@ -47,7 +47,8 @@ class SiteEngineerRepository {
   Future<void> submit({required String projectId, required String name}) async {
     await _api.submitWorkflow(await _token, projectId: projectId, siteEngineer: name);
   }
-  Future<void> submitIssue(String issueText) async => _api.submitIssue(await _token, issueText: issueText);
+  Future<void> submitIssue(String issueText, {List<String> images = const []}) async =>
+      _api.submitIssue(await _token, issueText: issueText, images: images);
   Future<List<Map<String, dynamic>>> issues() async => _records(await _api.getIssues(await _token));
 
   List<Map<String, dynamic>> _records(Map<String, dynamic> response) {

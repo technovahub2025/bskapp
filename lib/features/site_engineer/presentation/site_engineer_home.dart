@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../app/app_theme.dart';
 import '../../auth/data/project_engineer_api.dart';
@@ -250,6 +253,9 @@ class _IssueEntryDialog extends StatefulWidget {
 
 class _IssueEntryDialogState extends State<_IssueEntryDialog> {
   final _controller = TextEditingController();
+  final _picker = ImagePicker();
+  final List<XFile> _images = [];
+  bool _picking = false;
 
   @override
   void dispose() {
@@ -257,13 +263,32 @@ class _IssueEntryDialogState extends State<_IssueEntryDialog> {
     super.dispose();
   }
 
+  Future<void> _pickImages() async {
+    if (_picking || _images.length >= 5) return;
+    setState(() => _picking = true);
+    try {
+      final picked = await _picker.pickMultiImage(imageQuality: 75, maxWidth: 1600, maxHeight: 1600);
+      if (!mounted || picked.isEmpty) return;
+      setState(() => _images.addAll(picked.take(5 - _images.length)));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not select images: $error')));
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => AlertDialog(
         title: const Text('Report an issue'),
-        content: TextField(controller: _controller, minLines: 3, maxLines: 5, decoration: const InputDecoration(labelText: 'Describe the issue')),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: _controller, minLines: 3, maxLines: 5, decoration: const InputDecoration(labelText: 'Describe the issue')),
+          const SizedBox(height: 12),
+          Align(alignment: Alignment.centerLeft, child: OutlinedButton.icon(onPressed: _picking || _images.length >= 5 ? null : _pickImages, icon: _picking ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.image_outlined), label: Text(_images.isEmpty ? 'Add images (up to 5)' : 'Add more images (${_images.length}/5)'))),
+          if (_images.isNotEmpty) Wrap(spacing: 6, runSpacing: 4, children: [for (var index = 0; index < _images.length; index++) InputChip(label: Text(_images[index].name, overflow: TextOverflow.ellipsis), onDeleted: () => setState(() => _images.removeAt(index)))]),
+        ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () { if (_controller.text.trim().isNotEmpty) Navigator.pop(context, _controller.text.trim()); }, child: const Text('Submit')),
+          FilledButton(onPressed: _controller.text.trim().isEmpty ? null : () => Navigator.pop(context, _IssueDraft(text: _controller.text.trim(), images: List.unmodifiable(_images))), child: const Text('Submit')),
         ],
       );
 }
@@ -286,11 +311,24 @@ class _IssueListState extends State<_IssueList> {
   });
 
   Future<void> _addIssue() async {
-    final text = await showDialog<String>(context: context, builder: (_) => const _IssueEntryDialog());
-    if (text == null) return;
-    try { await widget.repository.submitIssue(text); if (mounted) setState(() { _future = widget.repository.issues(); }); }
+    final issue = await showDialog<_IssueDraft>(context: context, builder: (_) => const _IssueEntryDialog());
+    if (issue == null) return;
+    try {
+      final images = await Future.wait(issue.images.map((image) async {
+        final bytes = await image.readAsBytes();
+        return 'data:${image.mimeType ?? 'image/jpeg'};base64,${base64Encode(bytes)}';
+      }));
+      await widget.repository.submitIssue(issue.text, images: images);
+      if (mounted) setState(() { _future = widget.repository.issues(); });
+    }
     catch (error) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString()))); }
   }
+}
+
+class _IssueDraft {
+  const _IssueDraft({required this.text, required this.images});
+  final String text;
+  final List<XFile> images;
 }
 
 Widget _message(String text, {VoidCallback? onRetry}) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [Text(text, textAlign: TextAlign.center), if (onRetry != null) TextButton(onPressed: onRetry, child: const Text('Try again'))])));
