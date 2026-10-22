@@ -97,13 +97,18 @@ class SiteProjectWorkflowScreen extends StatelessWidget {
     try {
       final data = await repository.preview(projectId: project.id, name: siteEngineer);
       if (!context.mounted) return;
-      final ready = data['readyToSubmit'] == true;
+      final preview = _previewPayload(data);
+      final measurementCount = _count(_firstValue(preview, ['measurement', 'measurements', 'measurementReports', 'measurementReport', 'measurementCount']));
+      final labourCount = _count(_firstValue(preview, ['labour', 'labours', 'labourReports', 'labourReport', 'labourCount']));
+      final materialCount = _count(_firstValue(preview, ['material', 'materials', 'materialReports', 'materialReport', 'materialCount']));
+      final readyValue = preview['readyToSubmit'] ?? preview['ready'] ?? preview['canSubmit'];
+      final ready = readyValue == true || readyValue?.toString().toLowerCase() == 'true';
       await showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
         title: const Text('Workflow preview'),
         content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Measurements: ${_count(data['measurement'] ?? data['measurements'])}'),
-          Text('Labour reports: ${_count(data['labour'] ?? data['labours'])}'),
-          Text('Material reports: ${_count(data['material'] ?? data['materials'])}'),
+          Text('Measurements: $measurementCount'),
+          Text('Labour reports: $labourCount'),
+          Text('Material reports: $materialCount'),
           const SizedBox(height: 10), Text(ready ? 'All report types are ready to submit.' : 'Add at least one measurement, labour, and material report before submitting.', style: TextStyle(color: ready ? Colors.green.shade700 : Colors.orange.shade800)),
         ])),
         actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close')), if (ready) FilledButton(onPressed: () async { Navigator.pop(dialogContext); try { await repository.submit(projectId: project.id, name: siteEngineer); if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Workflow submitted'))); } catch (error) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString()))); } }, child: const Text('Submit'))],
@@ -342,3 +347,19 @@ String _recordSummary(Map<String, dynamic> record, String type) {
   return record['createdAt']?.toString() ?? 'Tap edit to view details';
 }
 int _count(dynamic value) => value is List ? value.length : value == null ? 0 : 1;
+Map<String, dynamic> _previewPayload(Map<String, dynamic> response) {
+  var payload = response;
+  for (var depth = 0; depth < 3; depth++) {
+    final nested = payload['data'] ?? payload['preview'] ?? payload['result'] ?? payload['workflow'];
+    if (nested is! Map) break;
+    payload = {...payload, ...Map<String, dynamic>.from(nested)};
+  }
+  return payload;
+}
+
+dynamic _firstValue(Map<String, dynamic> data, List<String> keys) {
+  for (final key in keys) {
+    if (data.containsKey(key)) return data[key];
+  }
+  return null;
+}
