@@ -73,7 +73,7 @@ class _ProjectFormDialogState extends State<_ProjectFormDialog> {
                 TextFormField(controller: _description, decoration: const InputDecoration(labelText: 'Description'), minLines: 2, maxLines: 4, validator: _required),
                 const SizedBox(height: 12),
               ],
-              DropdownButtonFormField<String>(value: _projectType, decoration: const InputDecoration(labelText: 'Project type'), items: const [DropdownMenuItem(value: 'residential', child: Text('Residential')), DropdownMenuItem(value: 'commercial', child: Text('Commercial')), DropdownMenuItem(value: 'industrial', child: Text('Industrial')), DropdownMenuItem(value: 'infrastructure', child: Text('Infrastructure'))], onChanged: (value) { if (value != null) setState(() => _projectType = value); }),
+              DropdownButtonFormField<String>(value: _projectType, decoration: const InputDecoration(labelText: 'Project type'), items: const [DropdownMenuItem(value: 'commercial', child: Text('Commercial')), DropdownMenuItem(value: 'industrial', child: Text('Industrial')), DropdownMenuItem(value: 'residential', child: Text('Residential')), DropdownMenuItem(value: 'others', child: Text('Others'))], onChanged: (value) { if (value != null) setState(() => _projectType = value); }),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(value: _status, decoration: const InputDecoration(labelText: 'Status'), items: widget.edit
                   ? const [DropdownMenuItem(value: 'Pending', child: Text('Pending')), DropdownMenuItem(value: 'Hold', child: Text('Hold')), DropdownMenuItem(value: 'Accept', child: Text('Accept')), DropdownMenuItem(value: 'Reject', child: Text('Reject'))]
@@ -272,7 +272,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   }
 
   Future<void> _editProject(Project project) async {
-    const projectTypes = {'residential', 'commercial', 'industrial', 'infrastructure'};
+    const projectTypes = {'residential', 'commercial', 'industrial', 'others'};
     const statuses = {'Pending', 'Hold', 'Accept', 'Reject'};
     final projectType = projectTypes.contains(project.projectType.toLowerCase()) ? project.projectType.toLowerCase() : 'residential';
     final matchedStatus = statuses.where((value) => value.toLowerCase() == project.workflowStatus?.toLowerCase()).firstOrNull;
