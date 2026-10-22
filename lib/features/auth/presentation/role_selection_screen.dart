@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/app_theme.dart';
+import '../../../app/build_sphere_logo.dart';
 import '../domain/app_role.dart';
 import '../domain/auth_repository.dart';
 import '../../projects/domain/project_repository.dart';
@@ -27,7 +28,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
         child: ConstrainedBox(constraints: BoxConstraints(minHeight: constraints.maxHeight - 44), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Container(width: 42, height: 42, decoration: BoxDecoration(color: AppTheme.yellow.withValues(alpha: .32), borderRadius: BorderRadius.circular(13)), child: const Icon(Icons.apartment_rounded, color: AppTheme.orange)),
+            Container(width: 42, height: 42, padding: const EdgeInsets.all(7), decoration: BoxDecoration(color: AppTheme.yellow.withValues(alpha: .32), borderRadius: BorderRadius.circular(13)), child: const BuildSphereLogo(size: 28)),
             const SizedBox(width: 11), const Text('BuildSphere', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: AppTheme.navy)),
           ]),
           const SizedBox(height: 42),

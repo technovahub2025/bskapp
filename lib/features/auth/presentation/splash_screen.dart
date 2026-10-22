@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../app/app_theme.dart';
+import '../../../app/build_sphere_logo.dart';
 import '../domain/auth_repository.dart';
 import '../../projects/domain/project_repository.dart';
 import 'role_selection_screen.dart';
@@ -38,7 +39,7 @@ class _SplashScreenState extends State<SplashScreen> {
         backgroundColor: AppTheme.navy,
         body: Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 86, height: 86, decoration: BoxDecoration(color: AppTheme.yellow, borderRadius: BorderRadius.circular(26)), child: const Icon(Icons.apartment_rounded, color: AppTheme.navy, size: 45)),
+            Container(width: 86, height: 86, padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: AppTheme.yellow, borderRadius: BorderRadius.circular(26)), child: const BuildSphereLogo(size: 56)),
             const SizedBox(height: 20),
             const Text('BUILDSPHERE', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 22, letterSpacing: 3)),
             const SizedBox(height: 8),
