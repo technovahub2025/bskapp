@@ -27,7 +27,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
         child: ConstrainedBox(constraints: BoxConstraints(minHeight: constraints.maxHeight - 44), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Container(width: 42, height: 42, decoration: BoxDecoration(color: AppTheme.blue.withValues(alpha: .1), borderRadius: BorderRadius.circular(13)), child: const Icon(Icons.apartment_rounded, color: AppTheme.blue)),
+            Container(width: 42, height: 42, decoration: BoxDecoration(color: AppTheme.yellow.withValues(alpha: .32), borderRadius: BorderRadius.circular(13)), child: const Icon(Icons.apartment_rounded, color: AppTheme.orange)),
             const SizedBox(width: 11), const Text('BuildSphere', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: AppTheme.navy)),
           ]),
           const SizedBox(height: 42),
@@ -48,7 +48,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => SignInScreen(role: _selected, repository: widget.repository, projectRepository: widget.projectRepository)));
               }
             },
-            style: FilledButton.styleFrom(backgroundColor: AppTheme.navy, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.orange, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Text(widget.hasSession && _selected == AppRole.projectManager ? 'Continue to dashboard' : 'Continue as ${_selected.label}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)), const SizedBox(width: 9), const Icon(Icons.arrow_forward_rounded, size: 19)]),
           )),
           const SizedBox(height: 15),

@@ -65,7 +65,7 @@ class _SiteEngineerHomeState extends State<SiteEngineerHome> {
             const SizedBox(height: 5), Text('Your assigned projects', style: TextStyle(color: Colors.blueGrey.shade600)),
             const SizedBox(height: 20),
             if (projects.isEmpty) _message('No projects are assigned to you yet.')
-            else ...projects.map((project) => Card(color: Colors.white, elevation: 0, margin: const EdgeInsets.only(bottom: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFFE8ECF2))), child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            else ...projects.map((project) => Card(color: Colors.white, elevation: 0, margin: const EdgeInsets.only(bottom: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: AppTheme.border)), child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(project.title.isEmpty ? project.projectName : project.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.navy)),
               const SizedBox(height: 6), Text(project.description, style: TextStyle(color: Colors.blueGrey.shade600)),
               const SizedBox(height: 14), SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => SiteProjectWorkflowScreen(project: project, siteEngineer: name, repository: _workflow))), icon: const Icon(Icons.assignment_outlined), label: const Text('Open reports'))),
