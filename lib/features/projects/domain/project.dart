@@ -1,10 +1,11 @@
 class Project {
-  const Project({required this.id, required this.title, required this.description, this.projectName = '', this.siteEngineer});
+  const Project({required this.id, required this.title, required this.description, this.projectName = '', this.siteEngineer, this.workflowStatus});
   final String id;
   final String title;
   final String description;
   final String projectName;
   final String? siteEngineer;
+  final String? workflowStatus;
 
   factory Project.fromJson(Map<String, dynamic> json) => Project(
         id: (json['_id'] ?? json['id'] ?? '').toString(),
@@ -12,6 +13,7 @@ class Project {
         description: (json['description'] ?? '').toString(),
         projectName: (json['projectname'] ?? json['projectName'] ?? '').toString(),
         siteEngineer: (json['siteEngineer'] ?? json['siteengineer'] ?? json['site_engineer'])?.toString(),
+        workflowStatus: (json['workflowStatus'] ?? json['approvalStatus'] ?? json['submissionStatus'] ?? json['status'])?.toString(),
       );
 }
 

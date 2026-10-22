@@ -4,6 +4,13 @@ import '../../../app/app_theme.dart';
 import '../domain/project.dart';
 import '../domain/project_repository.dart';
 
+Color _workflowColor(String status) => switch (status.toLowerCase()) {
+      'approved' => const Color(0xFF15956B),
+      'rejected' => Colors.red.shade700,
+      'submitted' || 'pending' || 'pending approval' => Colors.orange.shade800,
+      _ => Colors.blueGrey.shade600,
+    };
+
 class ProjectsScreen extends StatefulWidget {
   const ProjectsScreen({super.key, required this.repository});
   final ProjectRepository repository;
@@ -152,6 +159,10 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   Widget _projectCard(Project project) => Card(color: Colors.white, elevation: 0, margin: const EdgeInsets.only(bottom: 11), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFFE8ECF2))), child: Padding(padding: const EdgeInsets.all(15), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     Row(children: [Expanded(child: Text(project.title.isEmpty ? project.projectName : project.title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppTheme.navy))), PopupMenuButton<String>(onSelected: (value) => value == 'edit' ? _editProject(project) : _assignProject(project), itemBuilder: (_) => const [PopupMenuItem(value: 'edit', child: Text('Edit details')), PopupMenuItem(value: 'assign', child: Text('Assign engineer'))])]),
     if (project.projectName.isNotEmpty && project.projectName != project.title) Text(project.projectName, style: TextStyle(color: Colors.blueGrey.shade500, fontSize: 12)),
+    if (project.workflowStatus?.isNotEmpty == true) ...[
+      const SizedBox(height: 5),
+      Text('Workflow: ${project.workflowStatus}', style: TextStyle(color: _workflowColor(project.workflowStatus!), fontSize: 12, fontWeight: FontWeight.w700)),
+    ],
     const SizedBox(height: 5), Text(project.description.isEmpty ? 'No description provided.' : project.description, style: TextStyle(color: Colors.blueGrey.shade700, height: 1.35)),
     const SizedBox(height: 12), Row(children: [Icon(Icons.engineering_rounded, size: 16, color: Colors.blueGrey.shade400), const SizedBox(width: 6), Text(project.siteEngineer?.isNotEmpty == true ? project.siteEngineer! : 'Unassigned', style: TextStyle(fontSize: 12, color: project.siteEngineer?.isNotEmpty == true ? const Color(0xFF15956B) : Colors.blueGrey.shade500, fontWeight: FontWeight.w600))]),
   ])));

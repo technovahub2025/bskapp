@@ -43,7 +43,7 @@ class _EstimatorHomeState extends State<EstimatorHome> {
             ...projects.map((project) => Card(color: Colors.white, elevation: 0, margin: const EdgeInsets.only(bottom: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xFFE7EBF1))), child: ListTile(
               contentPadding: const EdgeInsets.all(15),
               title: Text(project.title.isEmpty ? project.projectName : project.title, style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.navy)),
-              subtitle: Padding(padding: const EdgeInsets.only(top: 6), child: Text('${project.description}\n${project.siteEngineer == null ? 'No engineer assigned' : 'Site Engineer: ${project.siteEngineer}'}', maxLines: 3, overflow: TextOverflow.ellipsis)),
+              subtitle: Padding(padding: const EdgeInsets.only(top: 6), child: Text('${project.description}\n${project.siteEngineer == null ? 'No engineer assigned' : 'Site Engineer: ${project.siteEngineer}'}${project.workflowStatus?.isNotEmpty == true ? '\nWorkflow: ${project.workflowStatus}' : ''}', maxLines: 4, overflow: TextOverflow.ellipsis)),
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => EstimatorProjectScreen(project: project, repository: _repository))),
             ))),
