@@ -1,14 +1,19 @@
 {
-    "name": "bskapp",
-    "short_name": "bskapp",
+    "name": "BuildSphere",
+    "short_name": "BuildSphere",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFAF2",
+    "theme_color": "#FFC928",
+    "description": "BuildSphere construction project management.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
+        {
+            "src": "favicon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml"
+        },
         {
             "src": "icons/Icon-192.png",
             "sizes": "192x192",
