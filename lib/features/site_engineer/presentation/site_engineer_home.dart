@@ -103,31 +103,151 @@ class SiteProjectWorkflowScreen extends StatelessWidget {
           _ReportList(type: 'material', project: project, name: siteEngineer, repository: repository),
           _IssueList(repository: repository, project: project),
         ]),
-        bottomNavigationBar: SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), child: FilledButton.icon(onPressed: () => _preview(context), icon: const Icon(Icons.fact_check_outlined), label: const Text('Preview & submit workflow')))),
+        bottomNavigationBar: SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), child: FilledButton.icon(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => _WorkflowReviewScreen(project: project, siteEngineer: siteEngineer, repository: repository))), icon: const Icon(Icons.fact_check_outlined), label: const Text('Preview & submit workflow')))),
       ));
+}
 
-  Future<void> _preview(BuildContext context) async {
-    try {
-      final data = await repository.preview(projectId: project.id, name: siteEngineer);
-      if (!context.mounted) return;
-      final preview = _previewPayload(data);
-      final measurementCount = _count(_firstValue(preview, ['measurement', 'measurements', 'measurementReports', 'measurementReport', 'measurementCount']));
-      final labourCount = _count(_firstValue(preview, ['labour', 'labours', 'labourReports', 'labourReport', 'labourCount']));
-      final materialCount = _count(_firstValue(preview, ['material', 'materials', 'materialReports', 'materialReport', 'materialCount']));
-      final readyValue = preview['readyToSubmit'] ?? preview['ready'] ?? preview['canSubmit'];
-      final ready = readyValue == true || readyValue?.toString().toLowerCase() == 'true';
-      await showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
-        title: const Text('Workflow preview'),
-        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Measurements: $measurementCount'),
-          Text('Labour reports: $labourCount'),
-          Text('Material reports: $materialCount'),
-          const SizedBox(height: 10), Text(ready ? 'All report types are ready to submit.' : 'Add at least one measurement, labour, and material report before submitting.', style: TextStyle(color: ready ? Colors.green.shade700 : Colors.orange.shade800)),
-        ])),
-        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Close')), if (ready) FilledButton(onPressed: () async { Navigator.pop(dialogContext); try { await repository.submit(projectId: project.id, name: siteEngineer); if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Workflow submitted'))); } catch (error) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString()))); } }, child: const Text('Submit'))],
-      ));
-    } catch (error) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString()))); }
+class _WorkflowReviewScreen extends StatefulWidget {
+  const _WorkflowReviewScreen({required this.project, required this.siteEngineer, required this.repository});
+  final Project project;
+  final String siteEngineer;
+  final SiteEngineerRepository repository;
+
+  @override
+  State<_WorkflowReviewScreen> createState() => _WorkflowReviewScreenState();
+}
+
+class _WorkflowReviewScreenState extends State<_WorkflowReviewScreen> {
+  late Future<_WorkflowReviewData> _future = _load();
+  bool _submitting = false;
+
+  Future<_WorkflowReviewData> _load() async {
+    final values = await Future.wait<dynamic>([
+      widget.repository.preview(projectId: widget.project.id, name: widget.siteEngineer),
+      widget.repository.reports('measurement', projectId: widget.project.id, name: widget.siteEngineer),
+      widget.repository.reports('labour', projectId: widget.project.id, name: widget.siteEngineer),
+      widget.repository.reports('material', projectId: widget.project.id, name: widget.siteEngineer),
+      widget.repository.issues(projectId: widget.project.id),
+    ]);
+    return _WorkflowReviewData(
+      preview: _previewPayload(Map<String, dynamic>.from(values[0] as Map)),
+      measurements: List<Map<String, dynamic>>.from(values[1] as List),
+      labour: List<Map<String, dynamic>>.from(values[2] as List),
+      materials: List<Map<String, dynamic>>.from(values[3] as List),
+      issues: List<Map<String, dynamic>>.from(values[4] as List),
+    );
   }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Review workflow')),
+        body: FutureBuilder<_WorkflowReviewData>(
+          future: _future,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+            if (snapshot.hasError) return _message('Could not load all submitted data.\n${snapshot.error}', onRetry: () => setState(() => _future = _load()));
+            final data = snapshot.data!;
+            final readyValue = data.preview['readyToSubmit'] ?? data.preview['ready'] ?? data.preview['canSubmit'];
+            final ready = readyValue == null
+                ? data.measurements.isNotEmpty && data.labour.isNotEmpty && data.materials.isNotEmpty
+                : readyValue == true || readyValue.toString().toLowerCase() == 'true';
+            return ListView(padding: const EdgeInsets.fromLTRB(16, 12, 16, 24), children: [
+              Container(padding: const EdgeInsets.all(15), decoration: BoxDecoration(color: ready ? const Color(0xFFE7F6EF) : const Color(0xFFFFF3DC), borderRadius: BorderRadius.circular(16)), child: Row(children: [Icon(ready ? Icons.check_circle_rounded : Icons.info_outline_rounded, color: ready ? const Color(0xFF15956B) : AppTheme.orange), const SizedBox(width: 10), Expanded(child: Text(ready ? 'Review the information below, then submit.' : 'Add at least one measurement, labour, and material report before submitting.', style: TextStyle(fontWeight: FontWeight.w700, color: ready ? const Color(0xFF15956B) : Colors.orange.shade900)))])),
+              const SizedBox(height: 14),
+              _reviewSection('Measurements', data.measurements, 'measurement'),
+              _reviewSection('Labour reports', data.labour, 'labour'),
+              _reviewSection('Material reports', data.materials, 'material'),
+              _reviewSection('Issues', data.issues, 'issue'),
+            ]);
+          },
+        ),
+        bottomNavigationBar: SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), child: FutureBuilder<_WorkflowReviewData>(future: _future, builder: (context, snapshot) {
+          final data = snapshot.data;
+          final readyValue = data?.preview['readyToSubmit'] ?? data?.preview['ready'] ?? data?.preview['canSubmit'];
+          final ready = data != null && (readyValue == null
+              ? data.measurements.isNotEmpty && data.labour.isNotEmpty && data.materials.isNotEmpty
+              : readyValue == true || readyValue.toString().toLowerCase() == 'true');
+          return SizedBox(width: double.infinity, child: FilledButton.icon(
+            onPressed: !ready || _submitting ? null : _submit,
+            icon: _submitting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send_rounded),
+            label: Text(_submitting ? 'Submitting…' : 'Submit workflow'),
+          ));
+        }))),
+      );
+
+  Widget _reviewSection(String title, List<Map<String, dynamic>> records, String type) => Padding(
+        padding: const EdgeInsets.only(bottom: 13),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(padding: const EdgeInsets.fromLTRB(3, 4, 3, 8), child: Row(children: [Expanded(child: Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.navy))), Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5), decoration: BoxDecoration(color: const Color(0xFFFFF1D2), borderRadius: BorderRadius.circular(20)), child: Text('${records.length}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.orange)))])),
+          if (records.isEmpty)
+            Container(width: double.infinity, padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: AppTheme.border)), child: Text('No $title yet', style: TextStyle(color: Colors.blueGrey.shade500, fontSize: 12)))
+          else
+            ...records.asMap().entries.map((entry) => _reviewRecord(entry.value, type, entry.key + 1)),
+        ]),
+      );
+
+  Widget _reviewRecord(Map<String, dynamic> record, String type, int number) {
+    final dataKey = switch (type) {'measurement' => 'measurementReport', 'labour' => 'labourReport', 'material' => 'materialReport', _ => ''};
+    dynamic detail = dataKey.isEmpty ? null : record[dataKey];
+    final items = detail is List ? detail : detail is Map ? [detail] : [record];
+    final images = type == 'issue' ? _previewImageValues(record['images'] ?? record['image']) : const <String>[];
+    return Card(
+      margin: const EdgeInsets.only(bottom: 9),
+      child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [Expanded(child: Text(type == 'issue' ? (record['issueText'] ?? record['description'] ?? 'Issue').toString() : '${titleForType(type)} $number', style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.navy))), if (record['status'] != null) _siteStatusBadge(record['status'].toString())]),
+        if (type == 'issue' && record['issueText'] != null && record['description'] != null) ...[const SizedBox(height: 5), Text(record['description'].toString())],
+        for (final item in items.whereType<Map>()) ...[
+          const SizedBox(height: 9),
+          for (final field in item.entries.where((field) => !['_id', 'id', 'projectId', 'projectid', 'siteEngineer', 'status', 'createdAt', 'updatedAt', '__v', 'images', 'image'].contains(field.key)))
+            Padding(padding: const EdgeInsets.only(bottom: 6), child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [SizedBox(width: 112, child: Text(_label(field.key), style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade500))), Expanded(child: Text(_fullValue(field.value), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.navy)))])),
+        ],
+        if (record['createdAt'] != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text('Created: ${record['createdAt']}', style: TextStyle(fontSize: 10, color: Colors.blueGrey.shade500))),
+        if (images.isNotEmpty) ...[const SizedBox(height: 10), SizedBox(height: 100, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: images.length, separatorBuilder: (_, __) => const SizedBox(width: 8), itemBuilder: (_, index) => _previewImage(images[index])))],
+      ])),
+    );
+  }
+
+  String titleForType(String type) => switch (type) {'measurement' => 'Measurement', 'labour' => 'Labour report', _ => 'Material report'};
+
+  Future<void> _submit() async {
+    setState(() => _submitting = true);
+    try {
+      await widget.repository.submit(projectId: widget.project.id, name: widget.siteEngineer);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Workflow submitted successfully')));
+      Navigator.of(context).pop();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString()), behavior: SnackBarBehavior.floating));
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  List<String> _previewImageValues(dynamic value) {
+    if (value is String) return value.trim().isEmpty ? const [] : [value];
+    if (value is List) return value.map((item) => item is String ? item : item is Map ? (item['url'] ?? item['data'] ?? item['image'] ?? '').toString() : '').where((item) => item.trim().isNotEmpty).toList();
+    return const [];
+  }
+
+  Widget _previewImage(String source) {
+    final image = source.trim();
+    if (image.startsWith('http://') || image.startsWith('https://')) return ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(image, width: 124, height: 100, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _previewImageError()));
+    try {
+      final bytes = image.startsWith('data:') ? UriData.fromUri(Uri.parse(image)).contentAsBytes() : base64Decode(image.replaceFirst(RegExp(r'^data:[^,]*,'), ''));
+      return ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.memory(bytes, width: 124, height: 100, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _previewImageError()));
+    } catch (_) { return _previewImageError(); }
+  }
+
+  Widget _previewImageError() => Container(width: 124, height: 100, decoration: BoxDecoration(color: const Color(0xFFFFF8E8), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.broken_image_outlined, color: AppTheme.orange));
+}
+
+class _WorkflowReviewData {
+  const _WorkflowReviewData({required this.preview, required this.measurements, required this.labour, required this.materials, required this.issues});
+  final Map<String, dynamic> preview;
+  final List<Map<String, dynamic>> measurements;
+  final List<Map<String, dynamic>> labour;
+  final List<Map<String, dynamic>> materials;
+  final List<Map<String, dynamic>> issues;
 }
 
 class _ReportList extends StatefulWidget {
@@ -156,21 +276,71 @@ class _ReportListState extends State<_ReportList> {
           if (snapshot.hasError) return _message(snapshot.error.toString(), onRetry: () => setState(() { _load(); }));
           final reports = snapshot.data ?? const [];
           return ListView(padding: const EdgeInsets.all(16), children: [
-            SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: _add, icon: const Icon(Icons.add), label: Text('Add ${widget.type} report'))),
-            const SizedBox(height: 10),
-            if (reports.isEmpty) const Padding(padding: EdgeInsets.all(22), child: Center(child: Text('No reports yet')))
-            else ...reports.map((record) {
-              final id = (record['_id'] ?? record['id'] ?? '').toString();
-              return Card(color: Colors.white, elevation: 1.5, margin: const EdgeInsets.only(bottom: 10), child: ListTile(
-                leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: AppTheme.yellow.withValues(alpha: .3), borderRadius: BorderRadius.circular(12)), child: Icon(_siteReportIcon(widget.type), color: AppTheme.orange, size: 19)),
-                title: Text(_recordTitle(record, widget.type), style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.navy)),
-                subtitle: Text('Status: ${record['status'] ?? 'draft'}  •  ${_recordSummary(record, widget.type)}'),
-                trailing: IconButton(tooltip: 'Edit report', onPressed: id.isEmpty ? null : () => _edit(record, id), icon: const Icon(Icons.edit_outlined)),
-              ));
-            }),
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFFFF0C7), Colors.white], begin: Alignment.topLeft, end: Alignment.bottomRight), borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFFFE3A3))),
+              child: Row(children: [
+                Container(width: 44, height: 44, decoration: BoxDecoration(color: AppTheme.yellow, borderRadius: BorderRadius.circular(14)), child: Icon(_siteReportIcon(widget.type), color: AppTheme.navy)),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${_label(widget.type)} reports', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.navy)),
+                  const SizedBox(height: 3),
+                  Text(reports.isEmpty ? 'Add your first report for this project.' : 'Your saved project entries', style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade600)),
+                ])),
+                Container(padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)), child: Text('${reports.length}', style: const TextStyle(color: AppTheme.orange, fontWeight: FontWeight.w800))),
+              ]),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: _add, icon: const Icon(Icons.add_rounded), label: Text('Add ${widget.type} report'))),
+            const SizedBox(height: 8),
+            if (reports.isEmpty)
+              Padding(padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 18), child: Column(children: [Icon(Icons.note_add_outlined, size: 36, color: Colors.blueGrey.shade300), const SizedBox(height: 9), const Text('No reports yet', style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.navy)), const SizedBox(height: 4), Text('Your saved ${widget.type} reports will appear here.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.blueGrey.shade500))]))
+            else ...reports.map(_reportCard),
           ]);
         },
       );
+
+  Widget _reportCard(Map<String, dynamic> record) {
+    final id = (record['_id'] ?? record['id'] ?? '').toString();
+    final entries = _reportEntries(record, widget.type);
+    return Card(
+      color: Colors.white,
+      elevation: 1.5,
+      margin: const EdgeInsets.only(top: 5, bottom: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: AppTheme.border)),
+      child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(width: 40, height: 40, decoration: BoxDecoration(color: AppTheme.yellow.withValues(alpha: .32), borderRadius: BorderRadius.circular(13)), child: Icon(_siteReportIcon(widget.type), color: AppTheme.orange, size: 19)),
+          const SizedBox(width: 11),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(_recordTitle(record, widget.type), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.navy)),
+            const SizedBox(height: 3),
+            Text('Report ${widget.type}', style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade500)),
+          ])),
+          _siteStatusBadge((record['status'] ?? 'submitted').toString()),
+          const SizedBox(width: 3),
+          IconButton(tooltip: 'Edit report', onPressed: id.isEmpty ? null : () => _edit(record, id), icon: const Icon(Icons.edit_outlined, size: 19)),
+        ]),
+        if (entries.isNotEmpty) ...[
+          const SizedBox(height: 13),
+          Wrap(spacing: 7, runSpacing: 7, children: entries.map((entry) => Container(
+            constraints: const BoxConstraints(minWidth: 85, maxWidth: 190),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(color: const Color(0xFFFFF9EC), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFFE8B7))),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(_label(entry.key), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, color: Colors.blueGrey.shade500, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 3),
+              Text(_fullValue(entry.value), maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: AppTheme.navy, fontWeight: FontWeight.w700)),
+            ]),
+          )).toList()),
+        ],
+        if (record['createdAt'] != null) ...[
+          const SizedBox(height: 11),
+          Row(children: [Icon(Icons.schedule_rounded, size: 14, color: Colors.blueGrey.shade400), const SizedBox(width: 5), Text('Created ${record['createdAt']}', style: TextStyle(fontSize: 10, color: Colors.blueGrey.shade500))]),
+        ],
+      ])),
+    );
+  }
 
   Future<void> _add() async {
     final entry = await _entryDialog(widget.type);
@@ -453,6 +623,11 @@ String _label(String field) => field.replaceAllMapped(RegExp(r'[A-Z]'), (match) 
 String _formatCalculatedValue(num value) {
   if (value == value.roundToDouble()) return value.toInt().toString();
   return value.toStringAsFixed(3).replaceFirst(RegExp(r'\.?0+$'), '');
+}
+String _fullValue(dynamic value) {
+  if (value == null) return '—';
+  if (value is Map || value is List) return const JsonEncoder.withIndent('  ').convert(value);
+  return value.toString();
 }
 bool _numericField(String field) => !['descriptionOfWork', 'unit', 'labour', 'item'].contains(field);
 String _recordTitle(Map<String, dynamic> record, String type) => (record['title'] ?? record['projectname'] ?? record['siteEngineer'] ?? '${type[0].toUpperCase()}${type.substring(1)} report').toString();
