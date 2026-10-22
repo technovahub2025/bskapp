@@ -85,6 +85,8 @@ class ProjectEngineerApi {
   Future<Map<String, dynamic>> updateMaterial(String token, String id, Map<String, dynamic> body) => _request('PUT', '/api/updatematerial/${Uri.encodeComponent(id)}', token: token, body: body);
   Future<Map<String, dynamic>> workflowPreview(String token, {required String projectId, required String siteEngineer}) => _request('GET', '/api/workflowpreview?projectId=${Uri.encodeQueryComponent(projectId)}&siteEngineer=${Uri.encodeQueryComponent(siteEngineer)}', token: token);
   Future<Map<String, dynamic>> submitWorkflow(String token, {required String projectId, required String siteEngineer}) => _request('PUT', '/api/submitworkflow', token: token, body: {'projectId': projectId, 'siteEngineer': siteEngineer});
+  Future<Map<String, dynamic>> approveWorkflow(String token, {required String projectId, required String siteEngineer}) => _request('PUT', '/api/approveworkflow', token: token, body: {'projectId': projectId, 'siteEngineer': siteEngineer});
+  Future<Map<String, dynamic>> rejectWorkflow(String token, {required String projectId, required String siteEngineer}) => _request('PUT', '/api/rejectworkflow', token: token, body: {'projectId': projectId, 'siteEngineer': siteEngineer});
   Future<Map<String, dynamic>> submitIssue(String token, {required String issueText, List<String> images = const []}) => _request('POST', '/api/submitissue', token: token, body: {'issueText': issueText, 'images': images});
   Future<Map<String, dynamic>> getIssues(String token) => _request('GET', '/api/getissue', token: token);
 

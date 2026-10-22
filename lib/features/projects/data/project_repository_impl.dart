@@ -33,6 +33,20 @@ class ProjectRepositoryImpl implements ProjectRepository {
     await _api.assignProject(await _token, project.id, siteEngineer: siteEngineer);
   }
 
+  @override
+  Future<void> approveWorkflow(Project project) async {
+    final engineer = project.siteEngineer;
+    if (engineer == null || engineer.trim().isEmpty) throw const ApiException('This project has no assigned site engineer.');
+    await _api.approveWorkflow(await _token, projectId: project.id, siteEngineer: engineer);
+  }
+
+  @override
+  Future<void> rejectWorkflow(Project project) async {
+    final engineer = project.siteEngineer;
+    if (engineer == null || engineer.trim().isEmpty) throw const ApiException('This project has no assigned site engineer.');
+    await _api.rejectWorkflow(await _token, projectId: project.id, siteEngineer: engineer);
+  }
+
   List<Project> _list(Map<String, dynamic> response) {
     final raw = response['projects'] ?? response['assignedProjects'] ?? response['assignedprojects'] ?? response['data'] ?? response['results'] ?? const [];
     if (raw is! List) return const [];

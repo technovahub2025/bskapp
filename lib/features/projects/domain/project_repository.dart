@@ -7,4 +7,6 @@ abstract interface class ProjectRepository {
   Future<void> create({required String projectName, required String title, required String description});
   Future<void> update(Project project, {required String title, required String description});
   Future<void> assign(Project project, {required String siteEngineer});
+  Future<void> approveWorkflow(Project project);
+  Future<void> rejectWorkflow(Project project);
 }

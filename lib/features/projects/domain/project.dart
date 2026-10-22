@@ -13,7 +13,7 @@ class Project {
         description: (json['description'] ?? '').toString(),
         projectName: (json['projectname'] ?? json['projectName'] ?? '').toString(),
         siteEngineer: (json['siteEngineer'] ?? json['siteengineer'] ?? json['site_engineer'])?.toString(),
-        workflowStatus: (json['workflowStatus'] ?? json['approvalStatus'] ?? json['submissionStatus'] ?? json['status'])?.toString(),
+        workflowStatus: (json['workflowStatus'] ?? json['approvalStatus'] ?? json['submissionStatus'] ?? json['workflow_status'] ?? json['status'])?.toString(),
       );
 }
 
@@ -24,9 +24,9 @@ class ProjectCounts {
   final int unassigned;
 
   factory ProjectCounts.fromJson(Map<String, dynamic> json) => ProjectCounts(
-        total: _int(json['total'] ?? json['totalProjects']),
-        assigned: _int(json['assigned'] ?? json['assignedProjects']),
-        unassigned: _int(json['unassigned'] ?? json['unassignedProjects']),
+        total: _int(json['total'] ?? json['totalProjects'] ?? json['totalProject']),
+        assigned: _int(json['assigned'] ?? json['assignedProjects'] ?? json['assignedProject']),
+        unassigned: _int(json['unassigned'] ?? json['unassignedProjects'] ?? json['unassignedProject']),
       );
 }
 
