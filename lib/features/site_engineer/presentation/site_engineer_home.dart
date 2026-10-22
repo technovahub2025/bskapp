@@ -440,8 +440,9 @@ class _IssueDraft {
 Widget _message(String text, {VoidCallback? onRetry}) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [Text(text, textAlign: TextAlign.center), if (onRetry != null) TextButton(onPressed: onRetry, child: const Text('Try again'))])));
 Widget _siteStatusBadge(String status) {
   final color = switch (status.toLowerCase()) {
-    'approved' => const Color(0xFF15956B),
-    'rejected' => Colors.red.shade700,
+    'approved' || 'accept' || 'accepted' => const Color(0xFF15956B),
+    'rejected' || 'reject' => Colors.red.shade700,
+    'hold' => const Color(0xFF7952A3),
     'submitted' || 'pending' || 'pending approval' => Colors.orange.shade800,
     _ => Colors.blueGrey.shade600,
   };

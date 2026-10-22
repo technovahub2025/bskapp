@@ -9,8 +9,9 @@ import '../domain/project.dart';
 import '../domain/project_repository.dart';
 
 Color _workflowColor(String status) => switch (status.toLowerCase()) {
-      'approved' => const Color(0xFF15956B),
-      'rejected' => Colors.red.shade700,
+      'approved' || 'accept' || 'accepted' => const Color(0xFF15956B),
+      'rejected' || 'reject' => Colors.red.shade700,
+      'hold' => const Color(0xFF7952A3),
       'submitted' || 'pending' || 'pending approval' => Colors.orange.shade800,
       _ => Colors.blueGrey.shade600,
     };
@@ -75,8 +76,8 @@ class _ProjectFormDialogState extends State<_ProjectFormDialog> {
               DropdownButtonFormField<String>(value: _projectType, decoration: const InputDecoration(labelText: 'Project type'), items: const [DropdownMenuItem(value: 'residential', child: Text('Residential')), DropdownMenuItem(value: 'commercial', child: Text('Commercial')), DropdownMenuItem(value: 'industrial', child: Text('Industrial')), DropdownMenuItem(value: 'infrastructure', child: Text('Infrastructure'))], onChanged: (value) { if (value != null) setState(() => _projectType = value); }),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(value: _status, decoration: const InputDecoration(labelText: 'Status'), items: widget.edit
-                  ? const [DropdownMenuItem(value: 'Accept', child: Text('Accept')), DropdownMenuItem(value: 'Reject', child: Text('Reject'))]
-                  : const [DropdownMenuItem(value: 'Pending', child: Text('Pending')), DropdownMenuItem(value: 'Accept', child: Text('Accept')), DropdownMenuItem(value: 'Reject', child: Text('Reject'))], onChanged: (value) { if (value != null) setState(() => _status = value); }),
+                  ? const [DropdownMenuItem(value: 'Pending', child: Text('Pending')), DropdownMenuItem(value: 'Hold', child: Text('Hold')), DropdownMenuItem(value: 'Accept', child: Text('Accept')), DropdownMenuItem(value: 'Reject', child: Text('Reject'))]
+                  : const [DropdownMenuItem(value: 'Pending', child: Text('Pending')), DropdownMenuItem(value: 'Hold', child: Text('Hold')), DropdownMenuItem(value: 'Accept', child: Text('Accept')), DropdownMenuItem(value: 'Reject', child: Text('Reject'))], onChanged: (value) { if (value != null) setState(() => _status = value); }),
             ]),
           ),
         ),
@@ -185,7 +186,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   Widget _projectCard(Project project) {
     final assigned = project.siteEngineer?.trim().isNotEmpty == true;
     final status = project.workflowStatus?.trim();
-    final canReview = assigned && !['approved', 'rejected'].contains(status?.toLowerCase());
+    final canReview = assigned && !['approved', 'accepted', 'accept', 'rejected', 'reject'].contains(status?.toLowerCase());
     return Card(
       color: Colors.white,
       elevation: 1.5,
@@ -272,9 +273,10 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
   Future<void> _editProject(Project project) async {
     const projectTypes = {'residential', 'commercial', 'industrial', 'infrastructure'};
-    const statuses = {'Accept', 'Reject'};
+    const statuses = {'Pending', 'Hold', 'Accept', 'Reject'};
     final projectType = projectTypes.contains(project.projectType.toLowerCase()) ? project.projectType.toLowerCase() : 'residential';
-    final projectStatus = statuses.contains(project.workflowStatus) ? project.workflowStatus! : 'Accept';
+    final matchedStatus = statuses.where((value) => value.toLowerCase() == project.workflowStatus?.toLowerCase()).firstOrNull;
+    final projectStatus = matchedStatus ?? 'Pending';
     final values = await _projectDialog(title: 'Update project', projectName: project.projectName, projectTitle: project.title, description: project.description, projectType: projectType, status: projectStatus, edit: true);
     if (values == null) return;
     await _action(() => widget.repository.update(project, projectType: values[3], status: values[4]));

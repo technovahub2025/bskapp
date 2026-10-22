@@ -61,7 +61,7 @@ class _EstimatorHomeState extends State<EstimatorHome> {
                     const SizedBox(height: 10),
                     Wrap(spacing: 7, runSpacing: 6, children: [
                       _projectMeta(Icons.engineering_rounded, project.siteEngineer?.isNotEmpty == true ? project.siteEngineer! : 'Unassigned'),
-                      if (project.workflowStatus?.isNotEmpty == true) _projectMeta(Icons.fact_check_outlined, project.workflowStatus!),
+                      if (project.workflowStatus?.isNotEmpty == true) _projectMeta(Icons.fact_check_outlined, project.workflowStatus!, color: _projectStatusColor(project.workflowStatus!)),
                       _projectMeta(Icons.visibility_outlined, 'Read only'),
                     ]),
                   ])),
@@ -73,11 +73,19 @@ class _EstimatorHomeState extends State<EstimatorHome> {
       ]));
 }
 
-Widget _projectMeta(IconData icon, String label) => Container(
+Widget _projectMeta(IconData icon, String label, {Color color = AppTheme.orange}) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-      decoration: BoxDecoration(color: const Color(0xFFFFF8E8), borderRadius: BorderRadius.circular(30)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 13, color: AppTheme.orange), const SizedBox(width: 5), Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.navy))]),
+      decoration: BoxDecoration(color: color.withValues(alpha: .1), borderRadius: BorderRadius.circular(30)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 13, color: color), const SizedBox(width: 5), Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color))]),
     );
+
+Color _projectStatusColor(String status) => switch (status.toLowerCase()) {
+      'approved' || 'accept' || 'accepted' => const Color(0xFF15956B),
+      'rejected' || 'reject' => Colors.red.shade700,
+      'hold' => const Color(0xFF7952A3),
+      'pending' || 'submitted' || 'pending approval' => Colors.orange.shade800,
+      _ => Colors.blueGrey.shade600,
+    };
 
 class EstimatorProjectScreen extends StatelessWidget {
   const EstimatorProjectScreen({super.key, required this.project, required this.repository});
@@ -290,10 +298,13 @@ String _displayValue(dynamic value) {
   return text.length > 46 ? '${text.substring(0, 43)}…' : text;
 }
 Widget _statusBadge(String status) {
-  final approved = status.toLowerCase() == 'approved';
-  final pending = ['pending', 'submitted', 'pending approval'].contains(status.toLowerCase());
-  final color = approved ? const Color(0xFF21845C) : pending ? AppTheme.orange : Colors.blueGrey.shade600;
-  final background = approved ? const Color(0xFFE7F5EC) : pending ? const Color(0xFFFFF1D2) : const Color(0xFFF3F0EB);
+  final normalized = status.toLowerCase();
+  final approved = ['approved', 'accept', 'accepted'].contains(normalized);
+  final rejected = ['rejected', 'reject'].contains(normalized);
+  final onHold = normalized == 'hold';
+  final pending = ['pending', 'submitted', 'pending approval'].contains(normalized);
+  final color = approved ? const Color(0xFF21845C) : rejected ? Colors.red.shade700 : onHold ? const Color(0xFF7952A3) : pending ? AppTheme.orange : Colors.blueGrey.shade600;
+  final background = approved ? const Color(0xFFE7F5EC) : rejected ? const Color(0xFFFFEBE8) : onHold ? const Color(0xFFF1EAF8) : pending ? const Color(0xFFFFF1D2) : const Color(0xFFF3F0EB);
   return Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(30)), child: Text(status, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w800)));
 }
 String _details(Map<String, dynamic> report, String type) {
