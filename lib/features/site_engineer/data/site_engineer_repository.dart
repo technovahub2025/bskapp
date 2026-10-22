@@ -47,15 +47,15 @@ class SiteEngineerRepository {
   Future<void> submit({required String projectId, required String name}) async {
     await _api.submitWorkflow(await _token, projectId: projectId, siteEngineer: name);
   }
-  Future<void> submitIssue(String issueText, {required String projectId, List<String> images = const []}) async =>
-      _api.submitIssue(await _token, projectId: projectId, issueText: issueText, images: images);
-  Future<List<Map<String, dynamic>>> issues({String? projectId}) async {
-    final records = _records(await _api.getIssues(await _token, projectId: projectId));
-    if (projectId == null || projectId.isEmpty) return records;
+  Future<void> submitIssue(String issueText, {required String projectId, required String siteEngineer, List<String> images = const []}) async =>
+      _api.submitIssue(await _token, projectId: projectId, siteEngineer: siteEngineer, issueText: issueText, images: images);
+  Future<List<Map<String, dynamic>>> issues({required String projectId, required String siteEngineer}) async {
+    final records = _records(await _api.getIssues(await _token, projectId: projectId, siteEngineer: siteEngineer));
     return records.where((issue) {
       final rawId = issue['projectId'] ?? issue['projectid'] ?? (issue['project'] is Map ? (issue['project'] as Map)['_id'] ?? (issue['project'] as Map)['id'] : null);
       final linkedProjectId = rawId is Map ? (rawId['_id'] ?? rawId['id'])?.toString() : rawId?.toString();
-      return linkedProjectId == null || linkedProjectId == projectId;
+      final owner = (issue['siteEngineer'] ?? issue['siteengineer'] ?? issue['submittedBy'] ?? issue['createdBy'])?.toString().trim().toLowerCase();
+      return linkedProjectId == projectId && owner == siteEngineer.trim().toLowerCase();
     }).toList();
   }
 

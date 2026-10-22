@@ -99,14 +99,15 @@ class EstimatorProjectScreen extends StatelessWidget {
           _EstimatorReportList(type: 'measurement', projectId: project.id, repository: repository),
           _EstimatorReportList(type: 'labour', projectId: project.id, repository: repository),
           _EstimatorReportList(type: 'material', projectId: project.id, repository: repository),
-          _EstimatorIssueList(projectId: project.id, repository: repository),
+          _EstimatorIssueList(projectId: project.id, siteEngineer: project.siteEngineer, repository: repository),
         ]),
       ));
 }
 
 class _EstimatorIssueList extends StatefulWidget {
-  const _EstimatorIssueList({required this.projectId, required this.repository});
+  const _EstimatorIssueList({required this.projectId, required this.siteEngineer, required this.repository});
   final String projectId;
+  final String? siteEngineer;
   final EstimatorRepository repository;
 
   @override
@@ -114,18 +115,18 @@ class _EstimatorIssueList extends StatefulWidget {
 }
 
 class _EstimatorIssueListState extends State<_EstimatorIssueList> {
-  late Future<List<Map<String, dynamic>>> _future = widget.repository.issues(widget.projectId);
+  late Future<List<Map<String, dynamic>>> _future = widget.repository.issues(widget.projectId, siteEngineer: widget.siteEngineer);
 
   @override
   Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-          if (snapshot.hasError) return _message(snapshot.error.toString(), onRetry: () => setState(() => _future = widget.repository.issues(widget.projectId)));
+          if (snapshot.hasError) return _message(snapshot.error.toString(), onRetry: () => setState(() => _future = widget.repository.issues(widget.projectId, siteEngineer: widget.siteEngineer)));
           final issues = snapshot.data ?? const <Map<String, dynamic>>[];
           if (issues.isEmpty) return _message('No issues reported for this project.');
           return RefreshIndicator(
-            onRefresh: () async => setState(() => _future = widget.repository.issues(widget.projectId)),
+            onRefresh: () async => setState(() => _future = widget.repository.issues(widget.projectId, siteEngineer: widget.siteEngineer)),
             child: ListView(padding: const EdgeInsets.all(16), children: issues.map(_issueCard).toList()),
           );
         },

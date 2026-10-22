@@ -101,7 +101,7 @@ class SiteProjectWorkflowScreen extends StatelessWidget {
           _ReportList(type: 'measurement', project: project, name: siteEngineer, repository: repository),
           _ReportList(type: 'labour', project: project, name: siteEngineer, repository: repository),
           _ReportList(type: 'material', project: project, name: siteEngineer, repository: repository),
-          _IssueList(repository: repository, project: project),
+          _IssueList(repository: repository, project: project, siteEngineer: siteEngineer),
         ]),
         bottomNavigationBar: SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), child: FilledButton.icon(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => _WorkflowReviewScreen(project: project, siteEngineer: siteEngineer, repository: repository))), icon: const Icon(Icons.fact_check_outlined), label: const Text('Preview & submit workflow')))),
       ));
@@ -510,19 +510,20 @@ class _IssueEntryDialogState extends State<_IssueEntryDialog> {
 }
 
 class _IssueList extends StatefulWidget {
-  const _IssueList({required this.repository, required this.project});
+  const _IssueList({required this.repository, required this.project, required this.siteEngineer});
   final SiteEngineerRepository repository;
   final Project project;
+  final String siteEngineer;
   @override
   State<_IssueList> createState() => _IssueListState();
 }
 
 class _IssueListState extends State<_IssueList> {
-  late Future<List<Map<String, dynamic>>> _future = widget.repository.issues(projectId: widget.project.id);
+  late Future<List<Map<String, dynamic>>> _future = widget.repository.issues(projectId: widget.project.id, siteEngineer: widget.siteEngineer);
   @override
   Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(future: _future, builder: (context, snapshot) {
     if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-    if (snapshot.hasError) return _message(snapshot.error.toString(), onRetry: () => setState(() { _future = widget.repository.issues(projectId: widget.project.id); }));
+    if (snapshot.hasError) return _message(snapshot.error.toString(), onRetry: () => setState(() { _future = widget.repository.issues(projectId: widget.project.id, siteEngineer: widget.siteEngineer); }));
     final issues = snapshot.data ?? const [];
     return ListView(padding: const EdgeInsets.all(16), children: [
       SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: _addIssue, icon: const Icon(Icons.report_gmailerrorred_rounded), label: const Text('Report an issue'))),
@@ -594,8 +595,8 @@ class _IssueListState extends State<_IssueList> {
         final bytes = await image.readAsBytes();
         return 'data:${image.mimeType ?? 'image/jpeg'};base64,${base64Encode(bytes)}';
       }));
-      await widget.repository.submitIssue(issue.text, projectId: widget.project.id, images: images);
-      if (mounted) setState(() { _future = widget.repository.issues(projectId: widget.project.id); });
+      await widget.repository.submitIssue(issue.text, projectId: widget.project.id, siteEngineer: widget.siteEngineer, images: images);
+      if (mounted) setState(() { _future = widget.repository.issues(projectId: widget.project.id, siteEngineer: widget.siteEngineer); });
     }
     catch (error) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString()))); }
   }

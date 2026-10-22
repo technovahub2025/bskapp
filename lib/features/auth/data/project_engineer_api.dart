@@ -87,10 +87,14 @@ class ProjectEngineerApi {
   Future<Map<String, dynamic>> submitWorkflow(String token, {required String projectId, required String siteEngineer}) => _request('PUT', '/api/submitworkflow', token: token, body: {'projectId': projectId, 'siteEngineer': siteEngineer});
   Future<Map<String, dynamic>> approveWorkflow(String token, {required String projectId, required String siteEngineer}) => _request('PUT', '/api/approveworkflow', token: token, body: {'projectId': projectId, 'siteEngineer': siteEngineer});
   Future<Map<String, dynamic>> rejectWorkflow(String token, {required String projectId, required String siteEngineer}) => _request('PUT', '/api/rejectworkflow', token: token, body: {'projectId': projectId, 'siteEngineer': siteEngineer});
-  Future<Map<String, dynamic>> submitIssue(String token, {required String projectId, required String issueText, List<String> images = const []}) => _request('POST', '/api/submitissue', token: token, body: {'projectId': projectId, 'issueText': issueText, 'images': images});
-  Future<Map<String, dynamic>> getIssues(String token, {String? projectId}) {
-    final query = projectId == null || projectId.isEmpty ? '' : '?projectId=${Uri.encodeQueryComponent(projectId)}';
-    return _request('GET', '/api/getissue$query', token: token);
+  Future<Map<String, dynamic>> submitIssue(String token, {required String projectId, required String siteEngineer, required String issueText, List<String> images = const []}) => _request('POST', '/api/submitissue', token: token, body: {'projectId': projectId, 'siteEngineer': siteEngineer, 'issueText': issueText, 'images': images});
+  Future<Map<String, dynamic>> getIssues(String token, {String? projectId, String? siteEngineer}) {
+    final query = <String, String>{
+      if (projectId?.isNotEmpty == true) 'projectId': projectId!,
+      if (siteEngineer?.trim().isNotEmpty == true) 'siteEngineer': siteEngineer!.trim(),
+    };
+    final suffix = query.isEmpty ? '' : '?${Uri(queryParameters: query).query}';
+    return _request('GET', '/api/getissue$suffix', token: token);
   }
 
   Future<Map<String, dynamic>> _reportList(String token, String path, {String? projectId, String? siteEngineer, String? status}) {

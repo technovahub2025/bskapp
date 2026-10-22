@@ -12,11 +12,12 @@ class EstimatorRepository {
   Future<List<Project>> projects() async => _projectList(await _api.getEstimatorProjects(await _token));
   Future<List<Project>> assignedProjects({String? siteEngineer}) async => _projectList(await _api.getAssignedProjects(await _token, siteEngineer: siteEngineer));
 
-  Future<List<Map<String, dynamic>>> issues(String projectId) async {
-    final records = _records(await _api.getIssues(await _token, projectId: projectId));
+  Future<List<Map<String, dynamic>>> issues(String projectId, {String? siteEngineer}) async {
+    final records = _records(await _api.getIssues(await _token, projectId: projectId, siteEngineer: siteEngineer));
     return records.where((issue) {
       final linkedProjectId = _issueProjectId(issue);
-      return linkedProjectId == null || linkedProjectId == projectId;
+      final owner = (issue['siteEngineer'] ?? issue['siteengineer'] ?? issue['submittedBy'] ?? issue['createdBy'])?.toString().trim().toLowerCase();
+      return linkedProjectId == projectId && (siteEngineer == null || owner == siteEngineer.trim().toLowerCase());
     }).toList();
   }
 
