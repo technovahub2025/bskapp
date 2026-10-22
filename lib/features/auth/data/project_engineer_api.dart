@@ -67,10 +67,10 @@ class ProjectEngineerApi {
         : '?siteEngineer=${Uri.encodeQueryComponent(siteEngineer.trim())}';
     return _request('GET', '/api/getassignedprojects$query', token: token);
   }
-  Future<Map<String, dynamic>> createProject(String token, {required String projectName, required String title, required String description}) =>
-      _request('POST', '/api/createproject', token: token, body: {'projectname': projectName, 'title': title, 'description': description}, expectedStatus: 201);
-  Future<Map<String, dynamic>> updateProject(String token, String id, {required String title, required String description}) =>
-      _request('PUT', '/api/updateproject/${Uri.encodeComponent(id)}', token: token, body: {'title': title, 'description': description});
+  Future<Map<String, dynamic>> createProject(String token, {required String projectName, required String title, required String description, String projectType = 'residential', String status = 'Pending'}) =>
+      _request('POST', '/api/createproject', token: token, body: {'projectname': projectName, 'title': title, 'description': description, 'projectType': projectType, 'status': status}, expectedStatus: 201);
+  Future<Map<String, dynamic>> updateProject(String token, String id, {required String projectType, required String status}) =>
+      _request('PUT', '/api/updateproject/${Uri.encodeComponent(id)}', token: token, body: {'projectId': id, 'projectType': projectType, 'status': status});
   Future<Map<String, dynamic>> assignProject(String token, String id, {required String siteEngineer}) =>
       _request('PUT', '/api/assignproject/${Uri.encodeComponent(id)}', token: token, body: {'siteEngineer': siteEngineer});
 

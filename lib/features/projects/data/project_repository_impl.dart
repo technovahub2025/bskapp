@@ -21,12 +21,12 @@ class ProjectRepositoryImpl implements ProjectRepository {
     return ProjectCounts.fromJson(counts);
   }
   @override
-  Future<void> create({required String projectName, required String title, required String description}) async {
-    await _api.createProject(await _token, projectName: projectName, title: title, description: description);
+  Future<void> create({required String projectName, required String title, required String description, required String projectType, required String status}) async {
+    await _api.createProject(await _token, projectName: projectName, title: title, description: description, projectType: projectType, status: status);
   }
   @override
-  Future<void> update(Project project, {required String title, required String description}) async {
-    await _api.updateProject(await _token, project.id, title: title, description: description);
+  Future<void> update(Project project, {required String projectType, required String status}) async {
+    await _api.updateProject(await _token, project.id, projectType: projectType, status: status);
   }
   @override
   Future<void> assign(Project project, {required String siteEngineer}) async {

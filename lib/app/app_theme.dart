@@ -20,6 +20,14 @@ class AppTheme {
           scrolledUnderElevation: 0,
           titleTextStyle: TextStyle(color: navy, fontSize: 19, fontWeight: FontWeight.w800),
         ),
+        cardTheme: CardThemeData(
+          color: Colors.white,
+          elevation: 1,
+          shadowColor: Color(0x18382414),
+          surfaceTintColor: Colors.transparent,
+          margin: const EdgeInsets.only(bottom: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: border)),
+        ),
         tabBarTheme: const TabBarThemeData(
           labelColor: orange,
           unselectedLabelColor: Color(0xFF8A7866),

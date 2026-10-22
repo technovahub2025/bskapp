@@ -1,9 +1,10 @@
 class Project {
-  const Project({required this.id, required this.title, required this.description, this.projectName = '', this.siteEngineer, this.workflowStatus});
+  const Project({required this.id, required this.title, required this.description, this.projectName = '', this.projectType = '', this.siteEngineer, this.workflowStatus});
   final String id;
   final String title;
   final String description;
   final String projectName;
+  final String projectType;
   final String? siteEngineer;
   final String? workflowStatus;
 
@@ -12,6 +13,7 @@ class Project {
         title: (json['title'] ?? '').toString(),
         description: (json['description'] ?? '').toString(),
         projectName: (json['projectname'] ?? json['projectName'] ?? '').toString(),
+        projectType: (json['projectType'] ?? json['projecttype'] ?? '').toString(),
         siteEngineer: (json['siteEngineer'] ?? json['siteengineer'] ?? json['site_engineer'])?.toString(),
         workflowStatus: (json['workflowStatus'] ?? json['approvalStatus'] ?? json['submissionStatus'] ?? json['workflow_status'] ?? json['status'])?.toString(),
       );

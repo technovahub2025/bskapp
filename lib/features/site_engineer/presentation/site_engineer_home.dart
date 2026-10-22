@@ -65,10 +65,23 @@ class _SiteEngineerHomeState extends State<SiteEngineerHome> {
             const SizedBox(height: 5), Text('Your assigned projects', style: TextStyle(color: Colors.blueGrey.shade600)),
             const SizedBox(height: 20),
             if (projects.isEmpty) _message('No projects are assigned to you yet.')
-            else ...projects.map((project) => Card(color: Colors.white, elevation: 0, margin: const EdgeInsets.only(bottom: 12), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: AppTheme.border)), child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(project.title.isEmpty ? project.projectName : project.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.navy)),
-              const SizedBox(height: 6), Text(project.description, style: TextStyle(color: Colors.blueGrey.shade600)),
-              const SizedBox(height: 14), SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => SiteProjectWorkflowScreen(project: project, siteEngineer: name, repository: _workflow))), icon: const Icon(Icons.assignment_outlined), label: const Text('Open reports'))),
+            else ...projects.map((project) => Card(color: Colors.white, elevation: 1.5, margin: const EdgeInsets.only(bottom: 13), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: const BorderSide(color: AppTheme.border)), child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Container(width: 46, height: 46, decoration: BoxDecoration(color: AppTheme.yellow.withValues(alpha: .34), borderRadius: BorderRadius.circular(15)), child: const Icon(Icons.apartment_rounded, color: AppTheme.orange)),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(project.title.isEmpty ? project.projectName : project.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.navy)),
+                  if (project.projectName.isNotEmpty && project.projectName != project.title) Text(project.projectName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade500)),
+                ])),
+              ]),
+              if (project.description.isNotEmpty) ...[const SizedBox(height: 12), Text(project.description, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, height: 1.35, color: Colors.blueGrey.shade700))],
+              const SizedBox(height: 13),
+              Row(children: [
+                Expanded(child: Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), decoration: BoxDecoration(color: const Color(0xFFFFF8E8), borderRadius: BorderRadius.circular(12)), child: Row(children: [const Icon(Icons.engineering_rounded, size: 15, color: AppTheme.orange), const SizedBox(width: 6), Expanded(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.navy)))]))),
+                if (project.workflowStatus?.isNotEmpty == true) ...[const SizedBox(width: 7), _siteStatusBadge(project.workflowStatus!)],
+              ]),
+              const SizedBox(height: 13),
+              SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => SiteProjectWorkflowScreen(project: project, siteEngineer: name, repository: _workflow))), icon: const Icon(Icons.assignment_outlined), label: const Text('Open reports'))),
             ])))),
           ]));
         },
@@ -148,8 +161,9 @@ class _ReportListState extends State<_ReportList> {
             if (reports.isEmpty) const Padding(padding: EdgeInsets.all(22), child: Center(child: Text('No reports yet')))
             else ...reports.map((record) {
               final id = (record['_id'] ?? record['id'] ?? '').toString();
-              return Card(color: Colors.white, elevation: 0, margin: const EdgeInsets.only(bottom: 9), child: ListTile(
-                title: Text(_recordTitle(record, widget.type), style: const TextStyle(fontWeight: FontWeight.w700)),
+              return Card(color: Colors.white, elevation: 1.5, margin: const EdgeInsets.only(bottom: 10), child: ListTile(
+                leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: AppTheme.yellow.withValues(alpha: .3), borderRadius: BorderRadius.circular(12)), child: Icon(_siteReportIcon(widget.type), color: AppTheme.orange, size: 19)),
+                title: Text(_recordTitle(record, widget.type), style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.navy)),
                 subtitle: Text('Status: ${record['status'] ?? 'draft'}  •  ${_recordSummary(record, widget.type)}'),
                 trailing: IconButton(tooltip: 'Edit report', onPressed: id.isEmpty ? null : () => _edit(record, id), icon: const Icon(Icons.edit_outlined)),
               ));
@@ -203,6 +217,26 @@ class _ReportEntryDialogState extends State<_ReportEntryDialog> {
   };
   final _formKey = GlobalKey<FormState>();
 
+  void _recalculate() {
+    final inputs = switch (widget.type) {
+      'measurement' => const ['nos', 'length', 'breadth', 'height'],
+      'labour' => const ['nos', 'wages'],
+      _ => const <String>[],
+    };
+    if (inputs.isEmpty) return;
+    final values = inputs.map((field) => num.tryParse(_controllers[field]!.text.trim())).toList();
+    final outputField = widget.type == 'measurement' ? 'qty' : 'total';
+    if (values.any((value) => value == null)) {
+      _controllers[outputField]!.text = '';
+      return;
+    }
+    num result = 1;
+    for (final value in values) {
+      result *= value!;
+    }
+    _controllers[outputField]!.text = _formatCalculatedValue(result);
+  }
+
   @override
   void dispose() {
     for (final controller in _controllers.values) {
@@ -223,8 +257,13 @@ class _ReportEntryDialogState extends State<_ReportEntryDialog> {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: TextFormField(
                     controller: _controllers[field],
+                    readOnly: (widget.type == 'measurement' && field == 'qty') || (widget.type == 'labour' && field == 'total'),
+                    onChanged: (_) => _recalculate(),
                     keyboardType: _numericField(field) ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
-                    decoration: InputDecoration(labelText: _label(field)),
+                    decoration: InputDecoration(
+                      labelText: '${_label(field)}${(widget.type == 'measurement' && field == 'qty') || (widget.type == 'labour' && field == 'total') ? ' (calculated)' : ''}',
+                      suffixIcon: ((widget.type == 'measurement' && field == 'qty') || (widget.type == 'labour' && field == 'total')) ? const Icon(Icons.auto_awesome_rounded, size: 18) : null,
+                    ),
                     validator: (value) => value == null || value.trim().isEmpty ? 'Required' : null,
                   ),
                 ),
@@ -312,7 +351,7 @@ class _IssueListState extends State<_IssueList> {
     if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
     if (snapshot.hasError) return _message(snapshot.error.toString(), onRetry: () => setState(() { _future = widget.repository.issues(); }));
     final issues = snapshot.data ?? const [];
-    return ListView(padding: const EdgeInsets.all(16), children: [SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: _addIssue, icon: const Icon(Icons.report_gmailerrorred_rounded), label: const Text('Report an issue'))), const SizedBox(height: 10), if (issues.isEmpty) const Padding(padding: EdgeInsets.all(22), child: Center(child: Text('No issues reported'))) else ...issues.map((issue) => Card(color: Colors.white, elevation: 0, child: ListTile(title: Text((issue['issueText'] ?? issue['description'] ?? 'Issue').toString()), subtitle: Text('Status: ${issue['status'] ?? 'submitted'}'))))]);
+    return ListView(padding: const EdgeInsets.all(16), children: [SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: _addIssue, icon: const Icon(Icons.report_gmailerrorred_rounded), label: const Text('Report an issue'))), const SizedBox(height: 10), if (issues.isEmpty) const Padding(padding: EdgeInsets.all(22), child: Center(child: Text('No issues reported'))) else ...issues.map((issue) => Card(color: Colors.white, elevation: 1.5, child: ListTile(leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: AppTheme.yellow.withValues(alpha: .3), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.report_outlined, color: AppTheme.orange, size: 19)), title: Text((issue['issueText'] ?? issue['description'] ?? 'Issue').toString(), style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.navy)), subtitle: Text('Status: ${issue['status'] ?? 'submitted'}'))))]);
   });
 
   Future<void> _addIssue() async {
@@ -337,10 +376,24 @@ class _IssueDraft {
 }
 
 Widget _message(String text, {VoidCallback? onRetry}) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [Text(text, textAlign: TextAlign.center), if (onRetry != null) TextButton(onPressed: onRetry, child: const Text('Try again'))])));
+Widget _siteStatusBadge(String status) {
+  final color = switch (status.toLowerCase()) {
+    'approved' => const Color(0xFF15956B),
+    'rejected' => Colors.red.shade700,
+    'submitted' || 'pending' || 'pending approval' => Colors.orange.shade800,
+    _ => Colors.blueGrey.shade600,
+  };
+  return Container(padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7), decoration: BoxDecoration(color: color.withValues(alpha: .09), borderRadius: BorderRadius.circular(20)), child: Text(status, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)));
+}
 String _reportField(String type) => switch (type) {'measurement' => 'measurementReport', 'labour' => 'labourReport', _ => 'materialReport'};
 String _label(String field) => field.replaceAllMapped(RegExp(r'[A-Z]'), (match) => ' ${match[0]!.toLowerCase()}').replaceFirstMapped(RegExp(r'^[a-z]'), (match) => match[0]!.toUpperCase());
+String _formatCalculatedValue(num value) {
+  if (value == value.roundToDouble()) return value.toInt().toString();
+  return value.toStringAsFixed(3).replaceFirst(RegExp(r'\.?0+$'), '');
+}
 bool _numericField(String field) => !['descriptionOfWork', 'unit', 'labour', 'item'].contains(field);
 String _recordTitle(Map<String, dynamic> record, String type) => (record['title'] ?? record['projectname'] ?? record['siteEngineer'] ?? '${type[0].toUpperCase()}${type.substring(1)} report').toString();
+IconData _siteReportIcon(String type) => switch (type) {'measurement' => Icons.straighten_rounded, 'labour' => Icons.groups_rounded, _ => Icons.inventory_2_outlined};
 String _recordSummary(Map<String, dynamic> record, String type) {
   final data = record[_reportField(type)];
   if (data is List && data.isNotEmpty && data.first is Map) return (data.first as Map).entries.take(3).map((entry) => '${entry.key}: ${entry.value}').join(' · ');
