@@ -125,21 +125,17 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   Future<void> _refresh() async {
     setState(() { _loading = true; _error = null; });
     try {
-      final values = await Future.wait([widget.repository.counts(), widget.repository.projects()]);
+      final allProjects = await widget.repository.projects();
       if (!mounted) return;
-      final allProjects = values[1] as List<Project>;
-      final apiCounts = values[0] as ProjectCounts;
       final visibleProjects = _assignedOnly
           ? await widget.repository.assignedProjects(siteEngineer: _engineerFilter.isEmpty ? null : _engineerFilter)
           : allProjects;
       if (!mounted) return;
       final assigned = allProjects.where((project) => project.siteEngineer?.trim().isNotEmpty == true).length;
       setState(() {
-        _counts = ProjectCounts(
-          total: apiCounts.total == 0 && allProjects.isNotEmpty ? allProjects.length : apiCounts.total,
-          assigned: apiCounts.assigned == 0 && assigned > 0 ? assigned : apiCounts.assigned,
-          unassigned: apiCounts.total == 0 && allProjects.isNotEmpty ? allProjects.length - assigned : apiCounts.unassigned,
-        );
+        // Derive these figures from the refreshed project list so the tiles
+        // reflect the same current data as the project cards.
+        _counts = ProjectCounts(total: allProjects.length, assigned: assigned, unassigned: allProjects.length - assigned);
         _projects = visibleProjects;
         _loading = false;
       });
