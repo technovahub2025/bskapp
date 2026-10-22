@@ -47,15 +47,31 @@ class SiteEngineerRepository {
   Future<void> submit({required String projectId, required String name}) async {
     await _api.submitWorkflow(await _token, projectId: projectId, siteEngineer: name);
   }
-  Future<void> submitIssue(String issueText, {List<String> images = const []}) async =>
-      _api.submitIssue(await _token, issueText: issueText, images: images);
-  Future<List<Map<String, dynamic>>> issues() async => _records(await _api.getIssues(await _token));
+  Future<void> submitIssue(String issueText, {required String projectId, List<String> images = const []}) async =>
+      _api.submitIssue(await _token, projectId: projectId, issueText: issueText, images: images);
+  Future<List<Map<String, dynamic>>> issues({String? projectId}) async {
+    final records = _records(await _api.getIssues(await _token, projectId: projectId));
+    if (projectId == null || projectId.isEmpty) return records;
+    return records.where((issue) {
+      final rawId = issue['projectId'] ?? issue['projectid'] ?? (issue['project'] is Map ? (issue['project'] as Map)['_id'] ?? (issue['project'] as Map)['id'] : null);
+      final linkedProjectId = rawId is Map ? (rawId['_id'] ?? rawId['id'])?.toString() : rawId?.toString();
+      return linkedProjectId == null || linkedProjectId == projectId;
+    }).toList();
+  }
 
   List<Map<String, dynamic>> _records(Map<String, dynamic> response) {
-    final raw = response['reports'] ??
-        response['data'] ??
-        response['results'] ??
-        response['issues'] ??
+    var payload = response;
+    for (var depth = 0; depth < 3; depth++) {
+      final nested = payload['data'] ?? payload['result'];
+      if (nested is! Map) break;
+      payload = {...payload, ...Map<String, dynamic>.from(nested)};
+    }
+    final raw = payload['reports'] ??
+        payload['issues'] ??
+        payload['issue'] ??
+        payload['issueReports'] ??
+        payload['results'] ??
+        payload['data'] ??
         response['measurements'] ??
         response['measurementReports'] ??
         response['measurementReport'] ??
@@ -67,6 +83,7 @@ class SiteEngineerRepository {
         response['materialReport'] ??
         const [];
     if (raw is List) return raw.whereType<Map<String, dynamic>>().toList();
+    if (raw is Map<String, dynamic>) return [raw];
     return const [];
   }
 }

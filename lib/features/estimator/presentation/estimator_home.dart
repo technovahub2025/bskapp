@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../../app/app_theme.dart';
@@ -84,14 +86,89 @@ class EstimatorProjectScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DefaultTabController(length: 4, child: Scaffold(
-        appBar: AppBar(title: Text(project.title.isEmpty ? project.projectName : project.title), bottom: const TabBar(isScrollable: true, tabs: [Tab(text: 'Measurements'), Tab(text: 'Labour'), Tab(text: 'Materials'), Tab(text: 'Workflow')])),
+        appBar: AppBar(title: Text(project.title.isEmpty ? project.projectName : project.title), bottom: const TabBar(isScrollable: true, tabs: [Tab(text: 'Measurements'), Tab(text: 'Labour'), Tab(text: 'Materials'), Tab(text: 'Issues')])),
         body: TabBarView(children: [
           _EstimatorReportList(type: 'measurement', projectId: project.id, repository: repository),
           _EstimatorReportList(type: 'labour', projectId: project.id, repository: repository),
           _EstimatorReportList(type: 'material', projectId: project.id, repository: repository),
-          _WorkflowPreview(project: project, repository: repository),
+          _EstimatorIssueList(projectId: project.id, repository: repository),
         ]),
       ));
+}
+
+class _EstimatorIssueList extends StatefulWidget {
+  const _EstimatorIssueList({required this.projectId, required this.repository});
+  final String projectId;
+  final EstimatorRepository repository;
+
+  @override
+  State<_EstimatorIssueList> createState() => _EstimatorIssueListState();
+}
+
+class _EstimatorIssueListState extends State<_EstimatorIssueList> {
+  late Future<List<Map<String, dynamic>>> _future = widget.repository.issues(widget.projectId);
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
+          if (snapshot.hasError) return _message(snapshot.error.toString(), onRetry: () => setState(() => _future = widget.repository.issues(widget.projectId)));
+          final issues = snapshot.data ?? const <Map<String, dynamic>>[];
+          if (issues.isEmpty) return _message('No issues reported for this project.');
+          return RefreshIndicator(
+            onRefresh: () async => setState(() => _future = widget.repository.issues(widget.projectId)),
+            child: ListView(padding: const EdgeInsets.all(16), children: issues.map(_issueCard).toList()),
+          );
+        },
+      );
+
+  Widget _issueCard(Map<String, dynamic> issue) {
+    final images = _imageValues(issue['images'] ?? issue['image']);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(15),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(width: 40, height: 40, decoration: BoxDecoration(color: AppTheme.yellow.withValues(alpha: .3), borderRadius: BorderRadius.circular(13)), child: const Icon(Icons.report_outlined, color: AppTheme.orange)),
+            const SizedBox(width: 11),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text((issue['issueText'] ?? issue['description'] ?? 'Issue').toString(), style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.navy)),
+              const SizedBox(height: 4),
+              Text('Status: ${issue['status'] ?? 'submitted'}', style: TextStyle(fontSize: 12, color: Colors.blueGrey.shade600)),
+              if (issue['siteEngineer'] != null) Text('Reported by ${issue['siteEngineer']}', style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade500)),
+            ])),
+          ]),
+          if (images.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SizedBox(height: 92, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: images.length, separatorBuilder: (_, __) => const SizedBox(width: 8), itemBuilder: (_, index) => _issueImage(images[index]))),
+          ],
+        ]),
+      ),
+    );
+  }
+
+  Widget _issueImage(String source) {
+    final value = source.trim();
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(value, width: 112, height: 92, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imagePlaceholder()));
+    }
+    try {
+      final bytes = value.startsWith('data:') ? UriData.fromUri(Uri.parse(value)).contentAsBytes() : base64Decode(value.replaceFirst(RegExp(r'^data:[^,]*,'), ''));
+      return ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.memory(bytes, width: 112, height: 92, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imagePlaceholder()));
+    } catch (_) {
+      return _imagePlaceholder();
+    }
+  }
+
+  Widget _imagePlaceholder() => Container(width: 112, height: 92, decoration: BoxDecoration(color: const Color(0xFFFFF8E8), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.broken_image_outlined, color: AppTheme.orange));
+
+  List<String> _imageValues(dynamic value) {
+    if (value is String) return value.trim().isEmpty ? const [] : [value];
+    if (value is List) return value.map((item) => item is String ? item : item is Map ? (item['url'] ?? item['data'] ?? item['image'] ?? '').toString() : '').where((item) => item.trim().isNotEmpty).toList();
+    return const [];
+  }
 }
 
 class _EstimatorReportList extends StatefulWidget {

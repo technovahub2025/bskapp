@@ -72,7 +72,7 @@ class ProjectEngineerApi {
   Future<Map<String, dynamic>> updateProject(String token, String id, {required String projectType, required String status}) =>
       _request('PUT', '/api/updateproject/${Uri.encodeComponent(id)}', token: token, body: {'projectId': id, 'projectType': projectType, 'status': status});
   Future<Map<String, dynamic>> assignProject(String token, String id, {required String siteEngineer}) =>
-      _request('PUT', '/api/assignproject/${Uri.encodeComponent(id)}', token: token, body: {'siteEngineer': siteEngineer});
+      _request('PUT', '/api/assignproject/${Uri.encodeComponent(id)}', token: token, body: {'projectId': id, 'siteEngineer': siteEngineer});
 
   Future<Map<String, dynamic>> createMeasurement(String token, Map<String, dynamic> body) => _request('POST', '/api/createmaeasurment', token: token, body: body);
   Future<Map<String, dynamic>> createLabour(String token, Map<String, dynamic> body) => _request('POST', '/api/cretaelabour', token: token, body: body);
@@ -87,8 +87,11 @@ class ProjectEngineerApi {
   Future<Map<String, dynamic>> submitWorkflow(String token, {required String projectId, required String siteEngineer}) => _request('PUT', '/api/submitworkflow', token: token, body: {'projectId': projectId, 'siteEngineer': siteEngineer});
   Future<Map<String, dynamic>> approveWorkflow(String token, {required String projectId, required String siteEngineer}) => _request('PUT', '/api/approveworkflow', token: token, body: {'projectId': projectId, 'siteEngineer': siteEngineer});
   Future<Map<String, dynamic>> rejectWorkflow(String token, {required String projectId, required String siteEngineer}) => _request('PUT', '/api/rejectworkflow', token: token, body: {'projectId': projectId, 'siteEngineer': siteEngineer});
-  Future<Map<String, dynamic>> submitIssue(String token, {required String issueText, List<String> images = const []}) => _request('POST', '/api/submitissue', token: token, body: {'issueText': issueText, 'images': images});
-  Future<Map<String, dynamic>> getIssues(String token) => _request('GET', '/api/getissue', token: token);
+  Future<Map<String, dynamic>> submitIssue(String token, {required String projectId, required String issueText, List<String> images = const []}) => _request('POST', '/api/submitissue', token: token, body: {'projectId': projectId, 'issueText': issueText, 'images': images});
+  Future<Map<String, dynamic>> getIssues(String token, {String? projectId}) {
+    final query = projectId == null || projectId.isEmpty ? '' : '?projectId=${Uri.encodeQueryComponent(projectId)}';
+    return _request('GET', '/api/getissue$query', token: token);
+  }
 
   Future<Map<String, dynamic>> _reportList(String token, String path, {String? projectId, String? siteEngineer, String? status}) {
     final query = <String, String>{

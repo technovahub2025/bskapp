@@ -101,7 +101,7 @@ class SiteProjectWorkflowScreen extends StatelessWidget {
           _ReportList(type: 'measurement', project: project, name: siteEngineer, repository: repository),
           _ReportList(type: 'labour', project: project, name: siteEngineer, repository: repository),
           _ReportList(type: 'material', project: project, name: siteEngineer, repository: repository),
-          _IssueList(repository: repository),
+          _IssueList(repository: repository, project: project),
         ]),
         bottomNavigationBar: SafeArea(child: Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 12), child: FilledButton.icon(onPressed: () => _preview(context), icon: const Icon(Icons.fact_check_outlined), label: const Text('Preview & submit workflow')))),
       ));
@@ -311,7 +311,9 @@ class _IssueEntryDialogState extends State<_IssueEntryDialog> {
     if (_picking || _images.length >= 5) return;
     setState(() => _picking = true);
     try {
-      final picked = await _picker.pickMultiImage(imageQuality: 75, maxWidth: 1600, maxHeight: 1600);
+      // Resize and recompress at selection time so the base64 issue payloads
+      // stay small on mobile and web uploads.
+      final picked = await _picker.pickMultiImage(imageQuality: 60, maxWidth: 1280, maxHeight: 1280);
       if (!mounted || picked.isEmpty) return;
       setState(() => _images.addAll(picked.take(5 - _images.length)));
     } catch (error) {
@@ -338,21 +340,81 @@ class _IssueEntryDialogState extends State<_IssueEntryDialog> {
 }
 
 class _IssueList extends StatefulWidget {
-  const _IssueList({required this.repository});
+  const _IssueList({required this.repository, required this.project});
   final SiteEngineerRepository repository;
+  final Project project;
   @override
   State<_IssueList> createState() => _IssueListState();
 }
 
 class _IssueListState extends State<_IssueList> {
-  late Future<List<Map<String, dynamic>>> _future = widget.repository.issues();
+  late Future<List<Map<String, dynamic>>> _future = widget.repository.issues(projectId: widget.project.id);
   @override
   Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(future: _future, builder: (context, snapshot) {
     if (snapshot.connectionState != ConnectionState.done) return const Center(child: CircularProgressIndicator());
-    if (snapshot.hasError) return _message(snapshot.error.toString(), onRetry: () => setState(() { _future = widget.repository.issues(); }));
+    if (snapshot.hasError) return _message(snapshot.error.toString(), onRetry: () => setState(() { _future = widget.repository.issues(projectId: widget.project.id); }));
     final issues = snapshot.data ?? const [];
-    return ListView(padding: const EdgeInsets.all(16), children: [SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: _addIssue, icon: const Icon(Icons.report_gmailerrorred_rounded), label: const Text('Report an issue'))), const SizedBox(height: 10), if (issues.isEmpty) const Padding(padding: EdgeInsets.all(22), child: Center(child: Text('No issues reported'))) else ...issues.map((issue) => Card(color: Colors.white, elevation: 1.5, child: ListTile(leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: AppTheme.yellow.withValues(alpha: .3), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.report_outlined, color: AppTheme.orange, size: 19)), title: Text((issue['issueText'] ?? issue['description'] ?? 'Issue').toString(), style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.navy)), subtitle: Text('Status: ${issue['status'] ?? 'submitted'}'))))]);
+    return ListView(padding: const EdgeInsets.all(16), children: [
+      SizedBox(width: double.infinity, child: OutlinedButton.icon(onPressed: _addIssue, icon: const Icon(Icons.report_gmailerrorred_rounded), label: const Text('Report an issue'))),
+      const SizedBox(height: 10),
+      if (issues.isEmpty) const Padding(padding: EdgeInsets.all(22), child: Center(child: Text('No issues reported')))
+      else ...issues.map(_issueCard),
+    ]);
   });
+
+  Widget _issueCard(Map<String, dynamic> issue) {
+    final images = _issueImageValues(issue['images'] ?? issue['image']);
+    return Card(
+      color: Colors.white,
+      elevation: 1.5,
+      margin: const EdgeInsets.only(bottom: 11),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(width: 38, height: 38, decoration: BoxDecoration(color: AppTheme.yellow.withValues(alpha: .3), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.report_outlined, color: AppTheme.orange, size: 19)),
+            const SizedBox(width: 11),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text((issue['issueText'] ?? issue['description'] ?? 'Issue').toString(), style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.navy)),
+              const SizedBox(height: 4),
+              Text('Status: ${issue['status'] ?? 'submitted'}', style: TextStyle(fontSize: 12, color: Colors.blueGrey.shade600)),
+            ])),
+          ]),
+          if (images.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SizedBox(height: 92, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: images.length, separatorBuilder: (_, __) => const SizedBox(width: 8), itemBuilder: (_, index) => _issueImage(images[index]))),
+          ],
+        ]),
+      ),
+    );
+  }
+
+  Widget _issueImage(String source) {
+    final image = source.trim();
+    if (image.startsWith('http://') || image.startsWith('https://')) {
+      return ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.network(image, width: 112, height: 92, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageErrorTile()));
+    }
+    try {
+      final bytes = image.startsWith('data:') ? UriData.fromUri(Uri.parse(image)).contentAsBytes() : base64Decode(image.replaceFirst(RegExp(r'^data:[^,]*,'), ''));
+      return ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.memory(bytes, width: 112, height: 92, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageErrorTile()));
+    } catch (_) {
+      return _imageErrorTile();
+    }
+  }
+
+  Widget _imageErrorTile() => Container(width: 112, height: 92, decoration: BoxDecoration(color: const Color(0xFFFFF8E8), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.broken_image_outlined, color: AppTheme.orange));
+
+  List<String> _issueImageValues(dynamic value) {
+    if (value is String) return value.trim().isEmpty ? const [] : [value];
+    if (value is List) {
+      return value.map((item) {
+        if (item is String) return item;
+        if (item is Map) return (item['url'] ?? item['data'] ?? item['image'] ?? '').toString();
+        return '';
+      }).where((item) => item.trim().isNotEmpty).toList();
+    }
+    return const [];
+  }
 
   Future<void> _addIssue() async {
     final issue = await showDialog<_IssueDraft>(context: context, builder: (_) => const _IssueEntryDialog());
@@ -362,8 +424,8 @@ class _IssueListState extends State<_IssueList> {
         final bytes = await image.readAsBytes();
         return 'data:${image.mimeType ?? 'image/jpeg'};base64,${base64Encode(bytes)}';
       }));
-      await widget.repository.submitIssue(issue.text, images: images);
-      if (mounted) setState(() { _future = widget.repository.issues(); });
+      await widget.repository.submitIssue(issue.text, projectId: widget.project.id, images: images);
+      if (mounted) setState(() { _future = widget.repository.issues(projectId: widget.project.id); });
     }
     catch (error) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString()))); }
   }

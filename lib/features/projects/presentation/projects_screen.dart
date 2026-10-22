@@ -74,7 +74,9 @@ class _ProjectFormDialogState extends State<_ProjectFormDialog> {
               ],
               DropdownButtonFormField<String>(value: _projectType, decoration: const InputDecoration(labelText: 'Project type'), items: const [DropdownMenuItem(value: 'residential', child: Text('Residential')), DropdownMenuItem(value: 'commercial', child: Text('Commercial')), DropdownMenuItem(value: 'industrial', child: Text('Industrial')), DropdownMenuItem(value: 'infrastructure', child: Text('Infrastructure'))], onChanged: (value) { if (value != null) setState(() => _projectType = value); }),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(value: _status, decoration: const InputDecoration(labelText: 'Status'), items: const [DropdownMenuItem(value: 'Pending', child: Text('Pending')), DropdownMenuItem(value: 'Accept', child: Text('Accept')), DropdownMenuItem(value: 'Reject', child: Text('Reject'))], onChanged: (value) { if (value != null) setState(() => _status = value); }),
+              DropdownButtonFormField<String>(value: _status, decoration: const InputDecoration(labelText: 'Status'), items: widget.edit
+                  ? const [DropdownMenuItem(value: 'Accept', child: Text('Accept')), DropdownMenuItem(value: 'Reject', child: Text('Reject'))]
+                  : const [DropdownMenuItem(value: 'Pending', child: Text('Pending')), DropdownMenuItem(value: 'Accept', child: Text('Accept')), DropdownMenuItem(value: 'Reject', child: Text('Reject'))], onChanged: (value) { if (value != null) setState(() => _status = value); }),
             ]),
           ),
         ),
@@ -270,9 +272,9 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
   Future<void> _editProject(Project project) async {
     const projectTypes = {'residential', 'commercial', 'industrial', 'infrastructure'};
-    const statuses = {'Pending', 'Accept', 'Reject'};
+    const statuses = {'Accept', 'Reject'};
     final projectType = projectTypes.contains(project.projectType.toLowerCase()) ? project.projectType.toLowerCase() : 'residential';
-    final projectStatus = statuses.contains(project.workflowStatus) ? project.workflowStatus! : 'Pending';
+    final projectStatus = statuses.contains(project.workflowStatus) ? project.workflowStatus! : 'Accept';
     final values = await _projectDialog(title: 'Update project', projectName: project.projectName, projectTitle: project.title, description: project.description, projectType: projectType, status: projectStatus, edit: true);
     if (values == null) return;
     await _action(() => widget.repository.update(project, projectType: values[3], status: values[4]));
