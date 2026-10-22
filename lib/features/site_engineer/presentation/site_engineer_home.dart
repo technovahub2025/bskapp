@@ -127,7 +127,7 @@ class _WorkflowReviewScreenState extends State<_WorkflowReviewScreen> {
       widget.repository.reports('measurement', projectId: widget.project.id, name: widget.siteEngineer),
       widget.repository.reports('labour', projectId: widget.project.id, name: widget.siteEngineer),
       widget.repository.reports('material', projectId: widget.project.id, name: widget.siteEngineer),
-      widget.repository.issues(projectId: widget.project.id),
+      widget.repository.issues(projectId: widget.project.id, siteEngineer: widget.siteEngineer),
     ]);
     return _WorkflowReviewData(
       preview: _previewPayload(Map<String, dynamic>.from(values[0] as Map)),
